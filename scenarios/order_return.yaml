@@ -1,0 +1,10 @@
+# Order return processing scenario configuration
+id: order_return_001
+goal: "Return a damaged item"
+steps:
+  - user: "I need to return a broken blender."
+    bot_expect:
+      contains_any: ["order number", "order #", "have your order"]
+  - user: "Order 12345"
+    bot_expect:
+      contains_any: ["initiated the return", "return created", "emailed you a label"]

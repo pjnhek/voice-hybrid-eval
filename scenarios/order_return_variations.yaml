@@ -1,0 +1,10 @@
+# Order return with different phrasings - tests slot extraction robustness
+id: order_return_variations_001
+goal: "Return a damaged item"
+steps:
+  - user: "I need to send back this broken item"
+    bot_expect:
+      contains_any: ["order number", "order #", "which order"]
+  - user: "My order number is 12345"
+    bot_expect:
+      contains_any: ["initiated the return", "return created", "emailed you a label"]

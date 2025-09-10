@@ -1,0 +1,10 @@
+# Billing refund scenario configuration
+id: billing_refund_001
+goal: "Request refund for duplicate charge"
+steps:
+  - user: "I was charged twice for $45 last Friday."
+    bot_expect:
+      contains_any: ["card", "last four digits", "help you with that"]
+  - user: "Card ending 1234"
+    bot_expect:
+      contains_any: ["refund initiated", "processed your refund", "credit issued"]

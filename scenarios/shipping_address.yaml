@@ -1,0 +1,9 @@
+id: shipping_address_001
+goal: "Change shipping address"
+steps:
+  - user: "I need to update my shipping address."
+    bot_expect:
+      contains_any: ["order number", "order #"]
+  - user: "Order 98765"
+    bot_expect:
+      contains_any: ["updated your address", "address has been changed", "change confirmed", "shipping address"]
