@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "voice-hybrid-eval"
+version = "0.1.0"
+description = "Voice-bot evaluation framework for simulated end-to-end conversations."
+authors = ["pnhek"]
+readme = "README.md"
+packages = [{ include = "voice_eval" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+faster-whisper = "*"
+pyttsx3 = "*"
+pyyaml = "*"
+typer = "*"
+rich = "*"
+pydub = "*"
+requests = "*"
+anthropic = "*"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+pytest-mock = "*"
+
+[tool.poetry.scripts]
+voice-eval = "voice_eval.cli:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"

@@ -19,31 +19,31 @@ class Scenario:
 
 
 def load_scenario(path: Path) -> Scenario:
-    with open(path, 'r') as f:
+    with path.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
-    
+
     if "id" not in data:
         raise ValueError(f"Scenario file {path} missing required 'id' field")
-    
+
     steps = []
     for step_data in data.get("steps", []):
         step = Step(
             user=step_data.get("user"),
-            bot_expect=step_data.get("bot_expect")
+            bot_expect=step_data.get("bot_expect"),
         )
         steps.append(step)
-    
+
     return Scenario(
         id=data["id"],
         goal=data.get("goal", ""),
         steps=steps,
-        acceptance=data.get("acceptance", {})
+        acceptance=data.get("acceptance", {}),
     )
 
 
 def load_scenarios(dir_path: Path) -> List[Scenario]:
     scenarios = []
-    for yaml_file in dir_path.glob("*.yaml"):
+    for yaml_file in sorted(dir_path.glob("*.yaml")):
         scenario = load_scenario(yaml_file)
         scenarios.append(scenario)
     return scenarios

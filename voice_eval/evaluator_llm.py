@@ -1,4 +1,4 @@
-# LLM-based evaluator using Ollama with Llama
+# Ollama-based evaluator using Llama
 from typing import Dict, Any
 import requests
 import json
@@ -6,7 +6,7 @@ import os
 
 def check_bot_expect_llm(bot_text: str, expect: Dict[str, Any]) -> bool:
     """
-    LLM-based evaluation that follows the same rules as evaluator_rules.py
+    Ollama-based evaluation that follows the same rules as evaluator_rules.py.
     Uses Ollama with Llama to evaluate bot responses.
     """
     if not expect:
