@@ -4,6 +4,7 @@ from typing import Dict, List, Any
 
 from .audio.tts import synthesize
 from .audio.asr import transcribe
+from .bot_brain import generate_bot_response
 from .tool_client import ToolClient
 from .evaluator_claude import check_bot_expect_claude
 from .evaluator_rules import check_bot_expect_enhanced
@@ -15,6 +16,7 @@ def run_scenario(s: Scenario, audio_dir: Path, model_size: str = "tiny", judge: 
     tool_client = ToolClient()
     transcript = []
     slots = {}
+    conversation_history: List[Dict[str, str]] = []
 
     for i, step in enumerate(s.steps, start=1):
         user_text = step.user or ""
@@ -33,29 +35,23 @@ def run_scenario(s: Scenario, audio_dir: Path, model_size: str = "tiny", judge: 
         else:
             print(f"DEBUG - Slot extraction failed: {slots_result.error}")
 
-        policy_result = tool_client.call_tool("policy_decision", {
-            "goal": s.goal,
-            "user_input": user_transcript,
-            "available_slots": slots,
-        })
-
-        if not policy_result.success:
-            print(f"DEBUG - Policy decision failed: {policy_result.error}")
-            policy_result.data = {"action": "ASK_CLARIFY"}
-
-        response_result = tool_client.call_tool("generate_response", {
-            "action": policy_result.data["action"],
-            "slots": slots,
-        })
-
-        if not response_result.success:
-            print(f"DEBUG - Response generation failed: {response_result.error}")
-            response_result.data = {
+        try:
+            bot_response = generate_bot_response(
+                goal=s.goal,
+                user_input=user_transcript,
+                slots=slots,
+                conversation_history=conversation_history,
+            )
+        except Exception as exc:
+            print(f"DEBUG - Bot response generation failed: {exc}")
+            bot_response = {
                 "action": "ASK_CLARIFY",
                 "utterance": "I'm sorry, I encountered an error. Could you please try again?",
             }
 
-        bot_text = response_result.data["utterance"]
+        bot_text = bot_response["utterance"]
+        action = bot_response["action"]
+        conversation_history.append({"user": user_transcript, "bot": bot_text})
 
         bot_wav = f"{audio_dir}/{s.id}/bot_{i}.wav"
         synthesize(bot_text, bot_wav)
@@ -70,7 +66,7 @@ def run_scenario(s: Scenario, audio_dir: Path, model_size: str = "tiny", judge: 
             "user_text": user_text,
             "user_asr": user_transcript,
             "bot_text": bot_text,
-            "action": response_result.data["action"],
+            "action": action,
             "slots": dict(slots),
             "pass": ok,
             "expectation": step.bot_expect or {},
