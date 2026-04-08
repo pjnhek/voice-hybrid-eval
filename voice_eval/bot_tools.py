@@ -1,6 +1,6 @@
 # Rule-based bot tools for voice evaluation
 import re
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
 
@@ -8,7 +8,7 @@ from dataclasses import dataclass
 class ToolResult:
     success: bool
     data: Any
-    error: str = None
+    error: Optional[str] = None
 
 
 def extract_slots_tool(user_input: str, current_slots: Dict[str, Any]) -> ToolResult:

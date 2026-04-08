@@ -1,9 +1,14 @@
 """LLM-powered bot brain using Claude for policy decisions and response generation."""
 
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, NotRequired, TypedDict
 
 from anthropic import Anthropic
+
+
+class HistoryEntry(TypedDict):
+    user: str
+    bot: NotRequired[str]
 
 
 _BOT_RESPONSE_SCHEMA = {
@@ -18,13 +23,13 @@ _BOT_RESPONSE_SCHEMA = {
 
 
 def generate_bot_response(
+    client: Anthropic,
     goal: str,
     user_input: str,
     slots: Dict[str, Any],
-    conversation_history: List[Dict[str, str]],
+    conversation_history: List[HistoryEntry],
 ) -> Dict[str, Any]:
     """Use Claude to decide the next action and generate a response."""
-    client = Anthropic()
     response = client.messages.create(
         model="claude-haiku-4-5",
         max_tokens=256,
@@ -43,7 +48,7 @@ def generate_bot_response(
 
 
 def _build_messages(
-    conversation_history: List[Dict[str, str]],
+    conversation_history: List[HistoryEntry],
     user_input: str,
 ) -> List[Dict[str, str]]:
     messages: List[Dict[str, str]] = []
@@ -76,9 +81,6 @@ Rules:
 - Be concise and professional. One to two sentences max.
 - Do NOT make up order numbers, tracking info, or other specific data not in the extracted slots.
 - When confirming an action, reference the specific information the customer provided (e.g., the order number).
-
-You must respond with ONLY a JSON object (no other text):
-{{"action": "<ACTION_NAME>", "utterance": "<your response to the customer>"}}
 
 Valid actions: ASK_ORDER_NUMBER, ASK_CARD_INFO, ASK_EMAIL, ASK_ACCOUNT_NUMBER, ASK_CLARIFY,
 CONFIRM_RETURN, CONFIRM_ADDRESS_CHANGE, CONFIRM_CANCELLATION, PROCESS_REFUND,

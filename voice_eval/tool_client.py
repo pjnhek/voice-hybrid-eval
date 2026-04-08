@@ -3,8 +3,6 @@ from typing import Dict, Any
 from .bot_tools import (
     ToolResult,
     extract_slots_tool,
-    generate_response_tool,
-    policy_decision_tool,
 )
 
 
@@ -12,8 +10,6 @@ class ToolClient:
     def __init__(self):
         self.tools = {
             "extract_slots": extract_slots_tool,
-            "policy_decision": policy_decision_tool,
-            "generate_response": generate_response_tool,
         }
 
     def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> ToolResult:
