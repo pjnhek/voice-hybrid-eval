@@ -1,0 +1,104 @@
+# Upgrade subscription plan — 10 scenarios
+# 3 polite, 3 frustrated, 2 upfront, 2 vague
+
+# --- Polite / Straightforward ---
+
+- id: upgrade_sub_001
+  goal: "Upgrade subscription plan"
+  steps:
+    - user: "Hi, I'd like to upgrade my subscription to the premium plan please."
+      bot_expect:
+        contains_any: ["account number", "account", "account details"]
+    - user: "My account number is 80421."
+      bot_expect:
+        contains_any: ["upgraded", "upgrade confirmed", "subscription has been updated", "new plan"]
+
+- id: upgrade_sub_002
+  goal: "Upgrade subscription plan"
+  steps:
+    - user: "Hello, I'm currently on the basic plan and I want to move up to the next tier."
+      bot_expect:
+        contains_any: ["account number", "account", "account details"]
+    - user: "Sure, the account number is 56738."
+      bot_expect:
+        contains_any: ["upgraded", "upgrade confirmed", "subscription has been updated", "new plan"]
+
+- id: upgrade_sub_003
+  goal: "Upgrade subscription plan"
+  steps:
+    - user: "Hey, I've been thinking about upgrading my plan. Can you walk me through that?"
+      bot_expect:
+        contains_any: ["account number", "account", "account details"]
+    - user: "Oh right, it's account 32914."
+      bot_expect:
+        contains_any: ["upgraded", "upgrade confirmed", "subscription has been updated", "new plan"]
+
+# --- Frustrated / Impatient ---
+
+- id: upgrade_sub_004
+  goal: "Upgrade subscription plan"
+  steps:
+    - user: "I've been trying to upgrade on your website and it keeps crashing. Can you just do it for me? This is so annoying."
+      bot_expect:
+        contains_any: ["account number", "account", "account details"]
+    - user: "Account 69105. Just upgrade it already."
+      bot_expect:
+        contains_any: ["upgraded", "upgrade confirmed", "subscription has been updated", "new plan"]
+
+- id: upgrade_sub_005
+  goal: "Upgrade subscription plan"
+  steps:
+    - user: "Why is it so hard to upgrade my plan? I've clicked every button on your site and nothing happens."
+      bot_expect:
+        contains_any: ["account number", "account", "account details"]
+    - user: "It's 47283. And you really need to fix that page."
+      bot_expect:
+        contains_any: ["upgraded", "upgrade confirmed", "subscription has been updated", "new plan"]
+
+- id: upgrade_sub_006
+  goal: "Upgrade subscription plan"
+  steps:
+    - user: "I emailed about upgrading a week ago and never heard back. I'm calling now because clearly nobody reads emails over there."
+      bot_expect:
+        contains_any: ["account number", "account", "account details"]
+    - user: "Account number is 91560."
+      bot_expect:
+        contains_any: ["upgraded", "upgrade confirmed", "subscription has been updated", "new plan"]
+
+# --- Upfront / Provides Info Early ---
+
+- id: upgrade_sub_007
+  goal: "Upgrade subscription plan"
+  steps:
+    - user: "Hey, account 24897 here, I want to upgrade to the premium tier."
+      bot_expect:
+        contains_any: ["upgraded", "upgrade confirmed", "subscription has been updated", "new plan"]
+
+- id: upgrade_sub_008
+  goal: "Upgrade subscription plan"
+  steps:
+    - user: "I'm calling to upgrade my subscription. My account number is 75346 and I want the highest plan."
+      bot_expect:
+        contains_any: ["upgraded", "upgrade confirmed", "subscription has been updated", "new plan"]
+
+# --- Vague / Confused ---
+
+- id: upgrade_sub_009
+  goal: "Upgrade subscription plan"
+  steps:
+    - user: "So I think I wanna change my plan? Like get more features or whatever? I'm not sure what's available."
+      bot_expect:
+        contains_any: ["account number", "account", "account details"]
+    - user: "Uh I think my account is... hold on... 18603? Yeah."
+      bot_expect:
+        contains_any: ["upgraded", "upgrade confirmed", "subscription has been updated", "new plan"]
+
+- id: upgrade_sub_010
+  goal: "Upgrade subscription plan"
+  steps:
+    - user: "Hi, um, someone told me I could get a better plan? I don't really know the difference between them."
+      bot_expect:
+        contains_any: ["account number", "account", "account details"]
+    - user: "My account... hmm... I think it's 53082."
+      bot_expect:
+        contains_any: ["upgraded", "upgrade confirmed", "subscription has been updated", "new plan"]

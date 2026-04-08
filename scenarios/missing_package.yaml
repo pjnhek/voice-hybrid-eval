@@ -1,0 +1,104 @@
+# Report a missing package — 10 scenarios
+# 3 polite, 3 frustrated, 2 upfront, 2 vague
+
+# --- Polite / Straightforward ---
+
+- id: missing_package_001
+  goal: "Report a missing package"
+  steps:
+    - user: "Hi, my tracking says my package was delivered but I don't have it. I checked everywhere."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Order 74219."
+      bot_expect:
+        contains_any: ["investigation", "looking into", "investigate", "opened a case", "filed a report"]
+
+- id: missing_package_002
+  goal: "Report a missing package"
+  steps:
+    - user: "Hello, I got a delivery notification yesterday but there's nothing at my door. Can you help me figure out what happened?"
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "It's order 38105."
+      bot_expect:
+        contains_any: ["investigation", "looking into", "investigate", "opened a case", "filed a report"]
+
+- id: missing_package_003
+  goal: "Report a missing package"
+  steps:
+    - user: "Hey, I think my package might be lost. It says delivered but I've checked the porch, the mailbox, everything."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Yeah, order 52847."
+      bot_expect:
+        contains_any: ["investigation", "looking into", "investigate", "opened a case", "filed a report"]
+
+# --- Frustrated / Impatient ---
+
+- id: missing_package_004
+  goal: "Report a missing package"
+  steps:
+    - user: "Someone stole my package or your driver delivered it to the wrong house. Either way, I don't have it and I'm furious."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Order 61934. I want this resolved today."
+      bot_expect:
+        contains_any: ["investigation", "looking into", "investigate", "opened a case", "filed a report"]
+
+- id: missing_package_005
+  goal: "Report a missing package"
+  steps:
+    - user: "This is the second time a package has gone missing. I'm seriously considering never ordering from you again."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "It's 90283. And don't tell me to wait, I already waited three days."
+      bot_expect:
+        contains_any: ["investigation", "looking into", "investigate", "opened a case", "filed a report"]
+
+- id: missing_package_006
+  goal: "Report a missing package"
+  steps:
+    - user: "Your delivery driver marked it delivered but I have a ring camera and nobody came to my door. Where is my stuff?"
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Order 45672. I can send you the camera footage if you need it."
+      bot_expect:
+        contains_any: ["investigation", "looking into", "investigate", "opened a case", "filed a report"]
+
+# --- Upfront / Provides Info Early ---
+
+- id: missing_package_007
+  goal: "Report a missing package"
+  steps:
+    - user: "Hey, order 27318 says it was delivered but it's not here. I need to report it missing."
+      bot_expect:
+        contains_any: ["investigation", "looking into", "investigate", "opened a case", "filed a report"]
+
+- id: missing_package_008
+  goal: "Report a missing package"
+  steps:
+    - user: "I'm calling about order 83056. Tracking shows delivered two days ago and I never got it."
+      bot_expect:
+        contains_any: ["investigation", "looking into", "investigate", "opened a case", "filed a report"]
+
+# --- Vague / Confused ---
+
+- id: missing_package_009
+  goal: "Report a missing package"
+  steps:
+    - user: "Hey so uh, I was expecting something in the mail and it never showed up? I'm not really sure what happened to it."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Oh um, the order number... let me look. I think it's 16549."
+      bot_expect:
+        contains_any: ["investigation", "looking into", "investigate", "opened a case", "filed a report"]
+
+- id: missing_package_010
+  goal: "Report a missing package"
+  steps:
+    - user: "I think my package might not have come? Like the app says something about delivery but I didn't see anything outside."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Hmm I'm not sure where to find the order number... oh here. Order 73401."
+      bot_expect:
+        contains_any: ["investigation", "looking into", "investigate", "opened a case", "filed a report"]

@@ -1,0 +1,104 @@
+# Change shipping address — 10 scenarios
+# 3 polite, 3 frustrated, 2 upfront, 2 vague
+
+# --- Polite / Straightforward ---
+
+- id: change_address_001
+  goal: "Change shipping address"
+  steps:
+    - user: "Hi, I just realized I put the wrong shipping address on my order. Can I change it?"
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "It's order 34921."
+      bot_expect:
+        contains_any: ["updated your address", "address has been changed", "change confirmed", "shipping address"]
+
+- id: change_address_002
+  goal: "Change shipping address"
+  steps:
+    - user: "Hello, I recently moved and need to update the delivery address for a package I ordered."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "The order number is 78215."
+      bot_expect:
+        contains_any: ["updated your address", "address has been changed", "change confirmed", "shipping address"]
+
+- id: change_address_003
+  goal: "Change shipping address"
+  steps:
+    - user: "Hey, good morning. I need to change where my order gets delivered to, if that's possible."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Sure, order 56043."
+      bot_expect:
+        contains_any: ["updated your address", "address has been changed", "change confirmed", "shipping address"]
+
+# --- Frustrated / Impatient ---
+
+- id: change_address_004
+  goal: "Change shipping address"
+  steps:
+    - user: "I've been trying to change my shipping address on the website for an hour and it won't let me. Can someone just do it?"
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Order 91387. Please just fix it."
+      bot_expect:
+        contains_any: ["updated your address", "address has been changed", "change confirmed", "shipping address"]
+
+- id: change_address_005
+  goal: "Change shipping address"
+  steps:
+    - user: "My order is shipping to my old address and if it goes there I'm never gonna get it. I need this changed immediately."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "It's 42876. Hurry please, it's supposed to ship tomorrow."
+      bot_expect:
+        contains_any: ["updated your address", "address has been changed", "change confirmed", "shipping address"]
+
+- id: change_address_006
+  goal: "Change shipping address"
+  steps:
+    - user: "This is so frustrating. I already called once and the address still wasn't changed. I need someone to actually update it this time."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Order 65739. And please make sure it actually goes through this time."
+      bot_expect:
+        contains_any: ["updated your address", "address has been changed", "change confirmed", "shipping address"]
+
+# --- Upfront / Provides Info Early ---
+
+- id: change_address_007
+  goal: "Change shipping address"
+  steps:
+    - user: "Hi, I need to change the shipping address for order 30482. I moved last week."
+      bot_expect:
+        contains_any: ["updated your address", "address has been changed", "change confirmed", "shipping address"]
+
+- id: change_address_008
+  goal: "Change shipping address"
+  steps:
+    - user: "Hey, order 87654 needs to go to a different address. Can you update that for me?"
+      bot_expect:
+        contains_any: ["updated your address", "address has been changed", "change confirmed", "shipping address"]
+
+# --- Vague / Confused ---
+
+- id: change_address_009
+  goal: "Change shipping address"
+  steps:
+    - user: "So um I think my package might be going to the wrong place? Like I'm not sure if I put the right address in when I ordered."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Oh right, uh... I think it was order 21456."
+      bot_expect:
+        contains_any: ["updated your address", "address has been changed", "change confirmed", "shipping address"]
+
+- id: change_address_010
+  goal: "Change shipping address"
+  steps:
+    - user: "I need to like, change something on my order? The address part. I'm not really sure how this works."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Hmm hold on... I got it somewhere. Order 50198."
+      bot_expect:
+        contains_any: ["updated your address", "address has been changed", "change confirmed", "shipping address"]

@@ -1,0 +1,104 @@
+# Check order status — 10 scenarios
+# 3 polite, 3 frustrated, 2 upfront, 2 vague
+
+# --- Polite / Straightforward ---
+
+- id: check_status_001
+  goal: "Check order status"
+  steps:
+    - user: "Hi, I was just wondering if you could tell me where my order is? I placed it a few days ago."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Order 82714."
+      bot_expect:
+        contains_any: ["status", "shipped", "on its way", "delivered", "in transit", "processing"]
+
+- id: check_status_002
+  goal: "Check order status"
+  steps:
+    - user: "Hello, I'd like to check on the status of a recent order please."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Yeah, the order number is 59301."
+      bot_expect:
+        contains_any: ["status", "shipped", "on its way", "delivered", "in transit", "processing"]
+
+- id: check_status_003
+  goal: "Check order status"
+  steps:
+    - user: "Hey there, I'm hoping to get an update on my package. It was supposed to arrive yesterday."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Sure, it's order 46083."
+      bot_expect:
+        contains_any: ["status", "shipped", "on its way", "delivered", "in transit", "processing"]
+
+# --- Frustrated / Impatient ---
+
+- id: check_status_004
+  goal: "Check order status"
+  steps:
+    - user: "Where's my order? It was supposed to be here three days ago and I've got nothing."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Order 37462. I need an answer."
+      bot_expect:
+        contains_any: ["status", "shipped", "on its way", "delivered", "in transit", "processing"]
+
+- id: check_status_005
+  goal: "Check order status"
+  steps:
+    - user: "I've been waiting for over a week for this package. This is unacceptable. Where is it?"
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "It's 71845. Someone better tell me what's going on."
+      bot_expect:
+        contains_any: ["status", "shipped", "on its way", "delivered", "in transit", "processing"]
+
+- id: check_status_006
+  goal: "Check order status"
+  steps:
+    - user: "I'm calling because your tracking page hasn't updated in five days. What is happening with my order?"
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Order 20569. And your website tracking is broken apparently."
+      bot_expect:
+        contains_any: ["status", "shipped", "on its way", "delivered", "in transit", "processing"]
+
+# --- Upfront / Provides Info Early ---
+
+- id: check_status_007
+  goal: "Check order status"
+  steps:
+    - user: "Hey, can I get a status update on order 93471? Just wanna know when it'll be here."
+      bot_expect:
+        contains_any: ["status", "shipped", "on its way", "delivered", "in transit", "processing"]
+
+- id: check_status_008
+  goal: "Check order status"
+  steps:
+    - user: "I'm checking on order 64108. It should have arrived by now, what's the status?"
+      bot_expect:
+        contains_any: ["status", "shipped", "on its way", "delivered", "in transit", "processing"]
+
+# --- Vague / Confused ---
+
+- id: check_status_009
+  goal: "Check order status"
+  steps:
+    - user: "So like, I ordered something a while back and I'm not really sure if it's coming or not? Is there a way to check?"
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Um... I think it was order 15923? Or maybe... yeah, 15923."
+      bot_expect:
+        contains_any: ["status", "shipped", "on its way", "delivered", "in transit", "processing"]
+
+- id: check_status_010
+  goal: "Check order status"
+  steps:
+    - user: "I got an email about something shipping but I don't know which order it was. Can you look it up?"
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Hmm let me find it... order 88256 I think."
+      bot_expect:
+        contains_any: ["status", "shipped", "on its way", "delivered", "in transit", "processing"]

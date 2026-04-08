@@ -1,0 +1,104 @@
+# Cancel an order — 10 scenarios
+# 3 polite, 3 frustrated, 2 upfront, 2 vague
+
+# --- Polite / Straightforward ---
+
+- id: cancel_order_001
+  goal: "Cancel an order"
+  steps:
+    - user: "Hi, I'd like to cancel an order I placed earlier today if it hasn't shipped yet."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "It's order 47382."
+      bot_expect:
+        contains_any: ["cancelled", "canceled", "cancellation confirmed", "order has been cancelled"]
+
+- id: cancel_order_002
+  goal: "Cancel an order"
+  steps:
+    - user: "Hello, I changed my mind about a purchase and would like to cancel it please."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "The order number is 61250."
+      bot_expect:
+        contains_any: ["cancelled", "canceled", "cancellation confirmed", "order has been cancelled"]
+
+- id: cancel_order_003
+  goal: "Cancel an order"
+  steps:
+    - user: "Good afternoon. I need to cancel an order. I found a better price somewhere else."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Sure thing, it's order 29817."
+      bot_expect:
+        contains_any: ["cancelled", "canceled", "cancellation confirmed", "order has been cancelled"]
+
+# --- Frustrated / Impatient ---
+
+- id: cancel_order_004
+  goal: "Cancel an order"
+  steps:
+    - user: "I need to cancel my order right now. The delivery date keeps getting pushed back and I'm done waiting."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Order 58463. Just cancel it."
+      bot_expect:
+        contains_any: ["cancelled", "canceled", "cancellation confirmed", "order has been cancelled"]
+
+- id: cancel_order_005
+  goal: "Cancel an order"
+  steps:
+    - user: "I've been trying to cancel this order on your app for two days and nothing works. Can you just do it for me?"
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "It's 73916. And your app is terrible by the way."
+      bot_expect:
+        contains_any: ["cancelled", "canceled", "cancellation confirmed", "order has been cancelled"]
+
+- id: cancel_order_006
+  goal: "Cancel an order"
+  steps:
+    - user: "Yeah so you charged me the wrong amount and I just want to cancel the whole thing. This is so annoying."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Order 84205. Please confirm it's actually cancelled this time."
+      bot_expect:
+        contains_any: ["cancelled", "canceled", "cancellation confirmed", "order has been cancelled"]
+
+# --- Upfront / Provides Info Early ---
+
+- id: cancel_order_007
+  goal: "Cancel an order"
+  steps:
+    - user: "Hey, I need to cancel order 36710. I accidentally ordered the wrong size."
+      bot_expect:
+        contains_any: ["cancelled", "canceled", "cancellation confirmed", "order has been cancelled"]
+
+- id: cancel_order_008
+  goal: "Cancel an order"
+  steps:
+    - user: "Can you cancel order 52194 for me? I don't need it anymore."
+      bot_expect:
+        contains_any: ["cancelled", "canceled", "cancellation confirmed", "order has been cancelled"]
+
+# --- Vague / Confused ---
+
+- id: cancel_order_009
+  goal: "Cancel an order"
+  steps:
+    - user: "Um so I think I wanna cancel something I bought? I'm not even sure if it shipped yet or what."
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "I think it's uh... order 19548? Let me double check. Yeah, 19548."
+      bot_expect:
+        contains_any: ["cancelled", "canceled", "cancellation confirmed", "order has been cancelled"]
+
+- id: cancel_order_010
+  goal: "Cancel an order"
+  steps:
+    - user: "I don't know, I just want to stop the order from coming. Is it too late? Can I still do that?"
+      bot_expect:
+        contains_any: ["order number", "order #", "which order"]
+    - user: "Oh right. Hold on... order 40673."
+      bot_expect:
+        contains_any: ["cancelled", "canceled", "cancellation confirmed", "order has been cancelled"]

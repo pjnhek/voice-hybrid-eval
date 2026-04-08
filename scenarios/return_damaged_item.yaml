@@ -1,0 +1,104 @@
+# Return a damaged item — 10 scenarios
+# 3 polite, 3 frustrated, 2 upfront, 2 vague
+
+# --- Polite / Straightforward ---
+
+- id: return_damaged_001
+  goal: "Return a damaged item"
+  steps:
+    - user: "Hi there, I received a product that's damaged and I'd like to return it please."
+      bot_expect:
+        contains_any: ["order number", "order #", "have your order", "which order"]
+    - user: "Sure, it's order 48291."
+      bot_expect:
+        contains_any: ["initiated the return", "return created", "emailed you a label", "return label"]
+
+- id: return_damaged_002
+  goal: "Return a damaged item"
+  steps:
+    - user: "Good morning, I got a package yesterday and the item inside was broken. I'd like to send it back."
+      bot_expect:
+        contains_any: ["order number", "order #", "have your order", "which order"]
+    - user: "Yeah the order number is 57134."
+      bot_expect:
+        contains_any: ["initiated the return", "return created", "emailed you a label", "return label"]
+
+- id: return_damaged_003
+  goal: "Return a damaged item"
+  steps:
+    - user: "Hello, I'm hoping you can help me. I need to return something that came in pretty bad shape."
+      bot_expect:
+        contains_any: ["order number", "order #", "have your order", "which order"]
+    - user: "Let me check... okay it's order 63408."
+      bot_expect:
+        contains_any: ["initiated the return", "return created", "emailed you a label", "return label"]
+
+# --- Frustrated / Impatient ---
+
+- id: return_damaged_004
+  goal: "Return a damaged item"
+  steps:
+    - user: "Yeah I need to return this thing, it showed up completely smashed. This is ridiculous."
+      bot_expect:
+        contains_any: ["order number", "order #", "have your order", "which order"]
+    - user: "It's 29174. Can we hurry this up?"
+      bot_expect:
+        contains_any: ["initiated the return", "return created", "emailed you a label", "return label"]
+
+- id: return_damaged_005
+  goal: "Return a damaged item"
+  steps:
+    - user: "This is the second time I've gotten a broken item from you guys. I want to return it and honestly I'm pretty upset about it."
+      bot_expect:
+        contains_any: ["order number", "order #", "have your order", "which order"]
+    - user: "Order 83652. And I want this handled quickly please."
+      bot_expect:
+        contains_any: ["initiated the return", "return created", "emailed you a label", "return label"]
+
+- id: return_damaged_006
+  goal: "Return a damaged item"
+  steps:
+    - user: "Look, I've been waiting on hold for twenty minutes. The blender I ordered arrived cracked and I need to return it now."
+      bot_expect:
+        contains_any: ["order number", "order #", "have your order", "which order"]
+    - user: "It's order 41087, come on."
+      bot_expect:
+        contains_any: ["initiated the return", "return created", "emailed you a label", "return label"]
+
+# --- Upfront / Provides Info Early ---
+
+- id: return_damaged_007
+  goal: "Return a damaged item"
+  steps:
+    - user: "Hey I need to return order 72563, it arrived with a huge crack in it."
+      bot_expect:
+        contains_any: ["initiated the return", "return created", "emailed you a label", "return label"]
+
+- id: return_damaged_008
+  goal: "Return a damaged item"
+  steps:
+    - user: "Hi, my order number is 19846 and the toaster I got is completely busted, I need to send it back."
+      bot_expect:
+        contains_any: ["initiated the return", "return created", "emailed you a label", "return label"]
+
+# --- Vague / Confused ---
+
+- id: return_damaged_009
+  goal: "Return a damaged item"
+  steps:
+    - user: "Um yeah so I got this thing and it's like... not right? It's all messed up. I think I wanna send it back."
+      bot_expect:
+        contains_any: ["order number", "order #", "have your order", "which order"]
+    - user: "Oh uh, let me look... I think it's like... order 35021? Yeah that one."
+      bot_expect:
+        contains_any: ["initiated the return", "return created", "emailed you a label", "return label"]
+
+- id: return_damaged_010
+  goal: "Return a damaged item"
+  steps:
+    - user: "So I ordered something a while back and it wasn't in good condition when it got here. I don't really know what to do about it."
+      bot_expect:
+        contains_any: ["order number", "order #", "have your order", "which order"]
+    - user: "Hmm I think the number was... hold on... 60473."
+      bot_expect:
+        contains_any: ["initiated the return", "return created", "emailed you a label", "return label"]

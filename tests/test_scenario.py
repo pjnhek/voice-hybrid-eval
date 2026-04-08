@@ -40,6 +40,33 @@ steps: []
         load_scenario(scenario_file)
 
 
+def test_load_scenarios_supports_multi_scenario_yaml_files(tmp_path):
+    scenario_file = tmp_path / "multi.yaml"
+    scenario_file.write_text(
+        """
+- id: cancel_order_001
+  goal: Cancel an order
+  steps:
+    - user: "Please cancel my order"
+      bot_expect:
+        contains: "order number"
+- id: cancel_order_002
+  goal: Cancel an order
+  steps:
+    - user: "Cancel order 12345"
+      bot_expect:
+        contains: "cancelled"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    scenarios = load_scenarios(tmp_path)
+
+    assert [scenario.id for scenario in scenarios] == ["cancel_order_001", "cancel_order_002"]
+    assert scenarios[0].steps[0].user == "Please cancel my order"
+    assert scenarios[1].steps[0].bot_expect == {"contains": "cancelled"}
+
+
 def test_load_scenarios_returns_all_yaml_files(tmp_path):
     first = tmp_path / "a.yaml"
     second = tmp_path / "b.yaml"
@@ -53,13 +80,16 @@ steps: []
     )
     second.write_text(
         """
-id: second
-goal: Two
-steps: []
+- id: second
+  goal: Two
+  steps: []
+- id: third
+  goal: Three
+  steps: []
 """.strip(),
         encoding="utf-8",
     )
 
     scenarios = load_scenarios(tmp_path)
 
-    assert [scenario.id for scenario in scenarios] == ["first", "second"]
+    assert [scenario.id for scenario in scenarios] == ["first", "second", "third"]

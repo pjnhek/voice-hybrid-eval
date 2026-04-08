@@ -58,3 +58,6 @@ logs/
 *.temp
 
 .Rhistory
+
+# local reference
+doc.md

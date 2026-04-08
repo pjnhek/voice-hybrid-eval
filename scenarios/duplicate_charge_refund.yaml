@@ -1,0 +1,104 @@
+# Request refund for duplicate charge — 10 scenarios
+# 3 polite, 3 frustrated, 2 upfront, 2 vague
+
+# --- Polite / Straightforward ---
+
+- id: duplicate_charge_001
+  goal: "Request refund for duplicate charge"
+  steps:
+    - user: "Hi, I noticed I was charged twice for my last order. I'd like to get a refund for the extra charge please."
+      bot_expect:
+        contains_any: ["last four digits", "card", "last four", "card ending"]
+    - user: "Sure, the card ends in 4829."
+      bot_expect:
+        contains_any: ["refund initiated", "processed your refund", "credit issued", "refund"]
+
+- id: duplicate_charge_002
+  goal: "Request refund for duplicate charge"
+  steps:
+    - user: "Hello, I'm seeing two identical charges on my statement from your store. Could you help me sort that out?"
+      bot_expect:
+        contains_any: ["last four digits", "card", "last four", "card ending"]
+    - user: "It's the card ending in 7163."
+      bot_expect:
+        contains_any: ["refund initiated", "processed your refund", "credit issued", "refund"]
+
+- id: duplicate_charge_003
+  goal: "Request refund for duplicate charge"
+  steps:
+    - user: "Good afternoon. I was double charged for a purchase and would like a refund on the duplicate."
+      bot_expect:
+        contains_any: ["last four digits", "card", "last four", "card ending"]
+    - user: "Yeah the last four are 5308."
+      bot_expect:
+        contains_any: ["refund initiated", "processed your refund", "credit issued", "refund"]
+
+# --- Frustrated / Impatient ---
+
+- id: duplicate_charge_004
+  goal: "Request refund for duplicate charge"
+  steps:
+    - user: "I've been charged twice for the same order and this is completely unacceptable. I want my money back right now."
+      bot_expect:
+        contains_any: ["last four digits", "card", "last four", "card ending"]
+    - user: "Card ending 9241. How long is this gonna take?"
+      bot_expect:
+        contains_any: ["refund initiated", "processed your refund", "credit issued", "refund"]
+
+- id: duplicate_charge_005
+  goal: "Request refund for duplicate charge"
+  steps:
+    - user: "This is the third time I've called about this! You guys double charged me and nobody's fixed it yet!"
+      bot_expect:
+        contains_any: ["last four digits", "card", "last four", "card ending"]
+    - user: "Card ending 3756. I shouldn't have to keep calling."
+      bot_expect:
+        contains_any: ["refund initiated", "processed your refund", "credit issued", "refund"]
+
+- id: duplicate_charge_006
+  goal: "Request refund for duplicate charge"
+  steps:
+    - user: "Seriously? I just checked my bank and there's two charges from you for the exact same amount. Fix this please."
+      bot_expect:
+        contains_any: ["last four digits", "card", "last four", "card ending"]
+    - user: "It's 6184. And I want a confirmation email."
+      bot_expect:
+        contains_any: ["refund initiated", "processed your refund", "credit issued", "refund"]
+
+# --- Upfront / Provides Info Early ---
+
+- id: duplicate_charge_007
+  goal: "Request refund for duplicate charge"
+  steps:
+    - user: "Hey, I got double charged on my card ending 2047 and I need the duplicate refunded."
+      bot_expect:
+        contains_any: ["refund initiated", "processed your refund", "credit issued", "refund"]
+
+- id: duplicate_charge_008
+  goal: "Request refund for duplicate charge"
+  steps:
+    - user: "I see two charges for the same thing on my Visa ending in 8593. Can you reverse one of them?"
+      bot_expect:
+        contains_any: ["refund initiated", "processed your refund", "credit issued", "refund"]
+
+# --- Vague / Confused ---
+
+- id: duplicate_charge_009
+  goal: "Request refund for duplicate charge"
+  steps:
+    - user: "I got charged for something? I don't know, it was on my credit card. It looks like it went through twice maybe?"
+      bot_expect:
+        contains_any: ["last four digits", "card", "last four", "card ending"]
+    - user: "Umm which card... oh the one ending in 1472."
+      bot_expect:
+        contains_any: ["refund initiated", "processed your refund", "credit issued", "refund"]
+
+- id: duplicate_charge_010
+  goal: "Request refund for duplicate charge"
+  steps:
+    - user: "So there's this weird charge on my statement, and I think it might be a duplicate? I'm not really sure what happened."
+      bot_expect:
+        contains_any: ["last four digits", "card", "last four", "card ending"]
+    - user: "Uh let me check... card ending 6039 I think."
+      bot_expect:
+        contains_any: ["refund initiated", "processed your refund", "credit issued", "refund"]
