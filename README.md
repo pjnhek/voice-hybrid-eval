@@ -38,7 +38,6 @@ poetry run voice-eval scenarios scenarios/
 
 - `rules`: deterministic substring matching via `voice_eval/evaluator_rules.py`
 - `claude`: semantic grading via Claude structured outputs in `voice_eval/evaluator_claude.py`; requires `ANTHROPIC_API_KEY`
-- `ollama`: local LLM grading via `voice_eval/evaluator_llm.py`; requires Ollama running with `llama3.2` available
 
 Example commands:
 
@@ -49,17 +48,8 @@ poetry run voice-eval scenarios scenarios/ --judge rules
 # Claude judge
 poetry run voice-eval scenarios scenarios/ --judge claude
 
-# Ollama judge
-poetry run voice-eval scenarios scenarios/ --judge ollama
-
 # Larger ASR model
 poetry run voice-eval scenarios scenarios/ --model base
-```
-
-To prepare the Ollama judge:
-
-```bash
-ollama pull llama3.2
 ```
 
 ## Testing
@@ -90,7 +80,7 @@ YAML scenario
   -> TTS (pyttsx3)
   -> ASR (faster-whisper)
   -> bot tools (regex slot extraction, rule-based policy, template responses)
-  -> judge (rules, Claude, or Ollama)
+  -> judge (rules or Claude)
   -> markdown report
 ```
 
@@ -111,10 +101,7 @@ steps:
 ## Environment Variables
 
 - `ANTHROPIC_API_KEY`: required for the Claude judge
-- `OLLAMA_BASE_URL`: Ollama API URL, default `http://localhost:11434`
-- `OLLAMA_MODEL`: Ollama model name, default `llama3.2`
 - `DEFAULT_ASR_MODEL`: default ASR model size, default `tiny`
-- `DEBUG_LLM_EVALUATION`: enable Ollama-evaluator debug logging, default `false`
 
 ## Extending the Bot
 

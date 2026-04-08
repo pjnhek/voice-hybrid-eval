@@ -19,12 +19,6 @@ poetry install
 brew install ffmpeg
 ```
 
-Optional Ollama setup:
-
-```bash
-ollama pull llama3.2
-```
-
 ## Commands
 
 ```bash
@@ -36,9 +30,6 @@ poetry run voice-eval scenarios scenarios/ --report out/report.md --audio-dir ou
 
 # Claude judge (requires ANTHROPIC_API_KEY)
 poetry run voice-eval scenarios scenarios/ --judge claude
-
-# Ollama judge (requires Ollama running)
-poetry run voice-eval scenarios scenarios/ --judge ollama
 
 # Larger ASR model for better transcription accuracy
 poetry run voice-eval scenarios scenarios/ --model base
@@ -56,11 +47,11 @@ The system is a linear pipeline, orchestrated by `simulator.py`:
 YAML scenario -> for each step:
   user text -> TTS (pyttsx3) -> WAV -> ASR (faster-whisper) -> transcript
   -> slot extraction (regex) -> policy decision (rule tree) -> response generation (templates)
-  -> evaluation (rules, Claude, or Ollama) -> transcript record
+  -> evaluation (rules or Claude) -> transcript record
 -> markdown report
 ```
 
-Key design choice: the bot pipeline is still rule-based. The old `mcp_*` naming has been replaced with honest tool-oriented names. There is no real MCP server in the runtime flow. The only model-based components are the optional evaluators in `evaluator_claude.py` and `evaluator_llm.py`.
+Key design choice: the bot pipeline is still rule-based. The old `mcp_*` naming has been replaced with honest tool-oriented names. There is no real MCP server in the runtime flow. The only model-based evaluator is the optional Claude judge in `evaluator_claude.py`.
 
 ### Module Responsibilities
 
@@ -70,7 +61,6 @@ Key design choice: the bot pipeline is still rule-based. The old `mcp_*` naming 
 - `tool_client.py` — Thin dispatch layer that maps tool names to functions.
 - `evaluator_rules.py` — Deterministic substring-based expectation checks.
 - `evaluator_claude.py` — Claude structured-output evaluator using the Anthropic API.
-- `evaluator_llm.py` — Ollama/Llama evaluator with fallback to rule-based checks.
 - `audio/tts.py` / `audio/asr.py` — TTS via pyttsx3, ASR via faster-whisper with int8 -> float32 fallback. ASR returns lowercased text.
 
 ### Extending the Bot
@@ -102,7 +92,4 @@ steps:
 Configured via `.env` (copy from `env.example`):
 
 - `ANTHROPIC_API_KEY` (required for `--judge claude`)
-- `OLLAMA_BASE_URL` (default: `http://localhost:11434`)
-- `OLLAMA_MODEL` (default: `llama3.2`)
 - `DEFAULT_ASR_MODEL` (default: `tiny`)
-- `DEBUG_LLM_EVALUATION` (default: `false`)

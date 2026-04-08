@@ -7,7 +7,6 @@ from .audio.asr import transcribe
 from .tool_client import ToolClient
 from .evaluator_claude import check_bot_expect_claude
 from .evaluator_rules import check_bot_expect_enhanced
-from .evaluator_llm import check_bot_expect_llm
 from .scenario import Scenario
 
 
@@ -63,8 +62,6 @@ def run_scenario(s: Scenario, audio_dir: Path, model_size: str = "tiny", judge: 
 
         if judge == "claude":
             ok = check_bot_expect_claude(bot_text, step.bot_expect)
-        elif judge == "ollama":
-            ok = check_bot_expect_llm(bot_text, step.bot_expect)
         else:
             ok = check_bot_expect_enhanced(bot_text, step.bot_expect)
 

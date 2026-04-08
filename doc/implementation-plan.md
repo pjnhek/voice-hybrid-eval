@@ -6,182 +6,203 @@ This document is the source of truth for the next round of changes. Codex should
 
 ## Task 0: Fix scenario loader and clean up old scenarios
 
-### Fix `voice_eval/scenario.py`
-
-The new Gemini-generated YAML files contain multiple scenarios per file as a YAML list (e.g., `- id: cancel_order_001`). The current `load_scenario` function only handles single-scenario files (top-level dict with `id` key).
-
-Update `load_scenario` to detect the format:
-- If `yaml.safe_load()` returns a **dict** → single scenario (existing behavior)
-- If it returns a **list** → multiple scenarios, return a list
-
-Better approach: replace `load_scenario` (returns one) with logic in `load_scenarios` that handles both:
-
-```python
-def load_scenarios(dir_path: Path) -> List[Scenario]:
-    scenarios = []
-    for yaml_file in sorted(dir_path.glob("*.yaml")):
-        data = yaml.safe_load(yaml_file.read_text(encoding="utf-8"))
-        if isinstance(data, list):
-            for item in data:
-                scenarios.append(_parse_scenario(item, yaml_file))
-        elif isinstance(data, dict):
-            scenarios.append(_parse_scenario(data, yaml_file))
-    return scenarios
-```
-
-Extract the parsing logic into a `_parse_scenario(data: dict, path: Path) -> Scenario` helper that does the validation and Step construction.
-
-### Delete old scenario files
-
-Delete these — they're superseded by the new Gemini-generated files with more variety:
-- `scenarios/order_return.yaml`
-- `scenarios/order_return_variations.yaml`
-- `scenarios/billing_refund.yaml`
-- `scenarios/shipping_address.yaml`
-
-### Update tests
-
-Update `tests/test_scenario.py`:
-- Add a test for loading a multi-scenario YAML file (list format)
-- Update `test_load_scenarios_returns_all_yaml_files` to account for multi-scenario files
-- Keep the single-scenario and missing-id tests
-
-**Checklist:**
-- [x] `scenario.py` handles both list and dict YAML formats
-- [x] Old 4 scenario files deleted
-- [x] Tests updated for multi-scenario format
-- [x] `poetry run pytest` passes
-- [x] `poetry run voice-eval scenarios scenarios/` loads all 80 scenarios
+**Status: DONE**
 
 ---
 
 ## Task 1: Add 5 new goals to `bot_tools.py`
 
-**File:** `voice_eval/bot_tools.py`
-
-The bot currently handles 3 goals. Add 5 more. Each new goal requires changes in all three tool functions.
-
-### 1a. `extract_slots_tool` — add new regex patterns
-
-Add extraction for these new slot types:
-
-- **email**: Extract email addresses from user input. Pattern: standard email regex. Store as `slots["email"]`.
-- **account_number**: Extract account numbers (alphanumeric, 5-8 chars). Trigger on phrases like "account number", "account", "my account is". Store as `slots["account_number"]`.
-
-The existing `order_number` and `card_info` extractors stay unchanged — some new goals also use `order_number`.
-
-### 1b. `policy_decision_tool` — add new goal branches
-
-Add these branches after the existing three, following the same pattern:
-
-```
-goal: "Cancel an order"
-  - has order_number → CONFIRM_CANCELLATION
-  - missing → ASK_ORDER_NUMBER
-
-goal: "Check order status"
-  - has order_number → PROVIDE_STATUS
-  - missing → ASK_ORDER_NUMBER
-
-goal: "Reset account password"
-  - has email → SEND_RESET_LINK
-  - missing → ASK_EMAIL
-
-goal: "Report a missing package"
-  - has order_number → OPEN_INVESTIGATION
-  - missing → ASK_ORDER_NUMBER
-
-goal: "Upgrade subscription plan"
-  - has account_number → CONFIRM_UPGRADE
-  - missing → ASK_ACCOUNT_NUMBER
-```
-
-### 1c. `generate_response_tool` — add new response templates
-
-Add these to the `responses` dict:
-
-```python
-"CONFIRM_CANCELLATION": f"Your order {slots.get('order_number', 'that order')} has been cancelled. You will receive a confirmation email shortly.",
-"PROVIDE_STATUS": f"Order {slots.get('order_number', 'that order')} is currently being processed and is expected to arrive within 3-5 business days.",
-"SEND_RESET_LINK": f"I've sent a password reset link to {slots.get('email', 'your email address')}. Please check your inbox and spam folder.",
-"OPEN_INVESTIGATION": f"I've opened an investigation for order {slots.get('order_number', 'that order')}. Our team will look into the missing package and follow up within 24-48 hours.",
-"CONFIRM_UPGRADE": f"Your subscription has been upgraded. The changes to account {slots.get('account_number', 'your account')} will take effect immediately.",
-"ASK_EMAIL": "I can help you with that. Could you please provide the email address associated with your account?",
-"ASK_ACCOUNT_NUMBER": "I can help you with that. Could you please provide your account number?",
-```
-
-### 1d. Add tests for new goals
-
-**File:** `tests/test_bot_tools.py`
-
-Add tests for:
-- `extract_slots_tool` extracting email addresses
-- `extract_slots_tool` extracting account numbers
-- `policy_decision_tool` for each new goal (with and without required slots)
-- `generate_response_tool` for each new action
-
-~10 new tests.
-
-**Checklist:**
-- [x] New regex patterns in `extract_slots_tool` for email and account_number
-- [x] 5 new goal branches in `policy_decision_tool`
-- [x] 7 new response templates in `generate_response_tool` (5 confirmations + 2 ask prompts)
-- [x] New tests in `test_bot_tools.py`
-- [x] All existing tests still pass (`poetry run pytest`)
+**Status: DONE**
 
 ---
 
 ## Task 2: Remove Ollama judge
 
-Remove `evaluator_llm.py` and all Ollama references. The project will have two judges: `rules` (default) and `claude`.
-
-### Delete
-
-- `voice_eval/evaluator_llm.py`
-
-### Modify `voice_eval/simulator.py`
-
-- Remove `from .evaluator_llm import check_bot_expect_llm`
-- Remove the `elif judge == "ollama"` branch. The judge block should be:
-  ```python
-  if judge == "claude":
-      ok = check_bot_expect_claude(bot_text, step.bot_expect)
-  else:
-      ok = check_bot_expect_enhanced(bot_text, step.bot_expect)
-  ```
-
-### Modify `voice_eval/cli.py`
-
-- Change judge help text to: `"Evaluation judge: rules | claude"`
-
-### Modify `env.example`
-
-- Remove `OLLAMA_BASE_URL` and `OLLAMA_MODEL` lines
-
-### Modify `pyproject.toml`
-
-- Remove `requests` from dependencies (only used by the Ollama evaluator). Check if anything else imports it first — if not, remove it.
-
-### Delete tests
-
-- If any tests reference `evaluator_llm` or `check_bot_expect_llm`, remove them.
-
-### Modify `CLAUDE.md` and `README.md`
-
-- Remove all Ollama references (setup instructions, `--judge ollama`, env vars, etc.)
-
-**Checklist:**
-- [ ] `voice_eval/evaluator_llm.py` deleted
-- [ ] Ollama import and branch removed from `simulator.py`
-- [ ] CLI help text updated
-- [ ] Ollama env vars removed from `env.example`
-- [ ] `requests` removed from `pyproject.toml` if unused elsewhere
-- [ ] Ollama references removed from CLAUDE.md and README.md
-- [ ] All tests still pass
+**Status: DONE**
 
 ---
 
-## Task 3: Replace pyttsx3 with gTTS
+## Task 3: Replace rule-based bot with Claude-powered bot
+
+**This is a major architecture change.** The current bot pipeline uses regex slot extraction, hardcoded if/else policy decisions, and string templates for responses. Replace the policy decision and response generation steps with Claude API calls so the bot can actually understand and respond to users intelligently.
+
+### What changes and what stays
+
+**Keep as-is:**
+- `extract_slots_tool` in `bot_tools.py` — regex slot extraction is fast and deterministic, a reasonable pre-processing step before the LLM
+- `evaluator_claude.py` — the judge stays separate from the bot (different role, could use different models)
+- `evaluator_rules.py` — keep the rules judge as a baseline
+
+**Replace:**
+- `policy_decision_tool` — currently a hardcoded if/else tree. Replace with a Claude call that understands the goal, conversation history, and extracted slots to decide the next action.
+- `generate_response_tool` — currently a template lookup. Replace with a Claude call that generates a natural response.
+
+**Simplify:** Merge policy decision + response generation into a single Claude call. There's no reason to make two API calls when one can decide what to do AND generate the response together.
+
+### New file: `voice_eval/bot_brain.py`
+
+Create a new module that replaces the policy + response pipeline with a single Claude call.
+
+```python
+"""LLM-powered bot brain using Claude for policy decisions and response generation."""
+import json
+from typing import Any, Dict, List
+
+from anthropic import Anthropic
+
+
+def generate_bot_response(
+    goal: str,
+    user_input: str,
+    slots: Dict[str, Any],
+    conversation_history: List[Dict[str, str]],
+) -> Dict[str, Any]:
+    """Use Claude to decide the next action and generate a response.
+    
+    Returns dict with keys: "action", "utterance"
+    """
+    client = Anthropic()
+
+    system_prompt = f"""You are a customer service bot. Your current task is: {goal}
+
+You have access to the following extracted information from the conversation:
+{json.dumps(slots, indent=2) if slots else "No information extracted yet."}
+
+Based on the conversation so far, decide what to do next and respond naturally.
+
+Rules:
+- If you need information from the customer (order number, card info, email, account number), ask for it politely.
+- If you have enough information to fulfill the request, confirm the action and provide details.
+- Be concise and professional. One to two sentences max.
+- Do NOT make up order numbers, tracking info, or other specific data not in the extracted slots.
+- When confirming an action, reference the specific information the customer provided (e.g., the order number).
+
+You must respond with ONLY a JSON object (no other text):
+{{"action": "<ACTION_NAME>", "utterance": "<your response to the customer>"}}
+
+Valid actions: ASK_ORDER_NUMBER, ASK_CARD_INFO, ASK_EMAIL, ASK_ACCOUNT_NUMBER, ASK_CLARIFY,
+CONFIRM_RETURN, CONFIRM_ADDRESS_CHANGE, CONFIRM_CANCELLATION, PROCESS_REFUND,
+PROVIDE_STATUS, SEND_RESET_LINK, OPEN_INVESTIGATION, CONFIRM_UPGRADE"""
+
+    messages = []
+    for entry in conversation_history:
+        messages.append({"role": "user", "content": entry["user"]})
+        if "bot" in entry:
+            messages.append({"role": "assistant", "content": entry["bot"]})
+    
+    # Add current turn
+    messages.append({"role": "user", "content": user_input})
+
+    response = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=256,
+        system=system_prompt,
+        messages=messages,
+        output_config={
+            "format": {
+                "type": "json_schema",
+                "name": "bot_response",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "action": {"type": "string"},
+                        "utterance": {"type": "string"},
+                    },
+                    "required": ["action", "utterance"],
+                    "additionalProperties": False,
+                },
+            }
+        },
+    )
+
+    return json.loads(response.content[0].text)
+```
+
+Key design decisions:
+- Uses `claude-haiku-4-5` for cost efficiency (this runs per conversation turn, not just evaluation)
+- Structured output guarantees valid JSON — no parsing hacks
+- System prompt includes the goal and extracted slots as context
+- Conversation history is passed so Claude understands multi-turn context
+- The action names stay the same as before for compatibility with evaluation
+
+### Modify `voice_eval/simulator.py`
+
+Replace the three tool calls (extract_slots → policy_decision → generate_response) with: extract_slots → `generate_bot_response`.
+
+The new loop body should look like:
+
+```python
+from .bot_brain import generate_bot_response
+
+# ... in run_scenario, inside the step loop:
+
+# 1. Slot extraction (keep rule-based — fast, deterministic)
+slots_result = tool_client.call_tool("extract_slots", {
+    "user_input": user_transcript,
+    "current_slots": slots,
+})
+if slots_result.success:
+    slots = slots_result.data
+
+# 2. Bot response (Claude-powered)
+bot_response = generate_bot_response(
+    goal=s.goal,
+    user_input=user_transcript,
+    slots=slots,
+    conversation_history=conversation_history,
+)
+
+bot_text = bot_response["utterance"]
+action = bot_response["action"]
+
+# 3. Update conversation history for next turn
+conversation_history.append({"user": user_transcript, "bot": bot_text})
+```
+
+Important changes to `run_scenario`:
+- Add `conversation_history: List[Dict[str, str]] = []` alongside `slots = {}`
+- Remove the `policy_decision` and `generate_response` tool calls
+- Keep the `extract_slots` tool call
+- Pass `conversation_history` to `generate_bot_response`
+- After getting the response, append to `conversation_history`
+
+### Keep `bot_tools.py` and `tool_client.py`
+
+Don't delete them. `extract_slots_tool` is still used. The policy and response functions become dead code — leave them for now as a reference/fallback. They could be used later for a `--bot-mode rules` flag if desired.
+
+### Modify `tool_client.py`
+
+No changes needed — it still dispatches `extract_slots`.
+
+### Add `--bot-mode` flag (optional, low priority)
+
+Could add `--bot-mode rules|claude` to CLI to toggle between rule-based and LLM-powered bot. This lets you compare how the rule-based bot vs. the LLM bot handles the same scenarios. Nice for a portfolio story but not required for this task.
+
+### Tests
+
+**File:** `tests/test_bot_brain.py` (new)
+
+- Mock `anthropic.Anthropic` like in `test_evaluator_claude.py`
+- Test that `generate_bot_response` returns the expected dict shape
+- Test that conversation history is passed to the API
+- Test with empty slots vs populated slots
+- ~4 tests
+
+### Cost consideration
+
+With 80 scenarios averaging 2 turns each = ~160 Claude Haiku calls for the bot + ~160 for the judge = ~320 API calls total. At Haiku pricing that's well under $0.10 for a full run.
+
+**Checklist:**
+- [ ] `voice_eval/bot_brain.py` created with `generate_bot_response` function
+- [ ] `simulator.py` updated to use `generate_bot_response` instead of policy + response tools
+- [ ] Conversation history tracked across turns in `run_scenario`
+- [ ] `extract_slots_tool` still used for slot extraction
+- [ ] Tests in `tests/test_bot_brain.py`
+- [ ] All existing tests still pass (`poetry run pytest`)
+
+---
+
+## Task 4: Replace pyttsx3 with gTTS
 
 **Files:** `voice_eval/audio/tts.py`, `pyproject.toml`
 
@@ -205,14 +226,12 @@ def synthesize(text: str, out_wav: str) -> None:
     """Synthesize text to speech and save as audio file."""
     Path(out_wav).parent.mkdir(parents=True, exist_ok=True)
     tts = gTTS(text=text, lang="en")
-    # gTTS outputs MP3 natively. Save as MP3 — faster-whisper reads both MP3 and WAV.
-    # Use .wav extension for compatibility with the rest of the pipeline,
-    # but the actual content will be MP3-encoded. faster-whisper handles this fine
-    # via ffmpeg decoding.
+    # gTTS outputs MP3 natively. faster-whisper reads both MP3 and WAV
+    # via ffmpeg decoding, so the .wav extension is fine.
     tts.save(out_wav)
 ```
 
-Note: gTTS requires an internet connection. This is acceptable — the project already requires internet for the Claude judge. If offline support matters later, we can add a fallback.
+Note: gTTS requires an internet connection. This is acceptable — the project already requires internet for the Claude API. If offline support matters later, we can add a fallback.
 
 ### Update tests
 
@@ -229,8 +248,7 @@ If any existing tests mock or reference `pyttsx3`, update them to reference `gtt
 
 ---
 
-## Task 4: Add real audio input mode to `simulator.py`
-
+## Task 5: Add real audio input mode to `simulator.py`
 
 **Files:** `voice_eval/simulator.py`, `voice_eval/cli.py`
 
@@ -256,7 +274,7 @@ Pass it through to `run_directory` and `run_scenario`.
 
 ### Changes to `simulator.py`
 
-In `run_scenario`, change the user audio section (~lines 21-25):
+In `run_scenario`, change the user audio section:
 
 ```python
 # Check for pre-recorded audio
@@ -295,7 +313,7 @@ Test that when a real audio file exists at the expected path, TTS `synthesize` i
 
 ---
 
-## Task 5: GitHub Actions CI
+## Task 6: GitHub Actions CI
 
 **File:** `.github/workflows/ci.yml` (new)
 
@@ -334,7 +352,7 @@ jobs:
         run: poetry run pytest -v
 ```
 
-Note: Only run `pytest`, NOT the full scenario evaluation. The scenario run requires TTS (gTTS needs internet — fine) and ASR (faster-whisper downloads models — slow). Tests are fast, mocked, and sufficient to prove the code works.
+Note: Only run `pytest`, NOT the full scenario evaluation. The scenario run requires internet (gTTS, Claude API) and downloads ASR models — too slow for CI. Tests are fast, mocked, and sufficient to prove the code works.
 
 **Checklist:**
 - [ ] `.github/workflows/ci.yml` created
@@ -343,7 +361,7 @@ Note: Only run `pytest`, NOT the full scenario evaluation. The scenario run requ
 
 ---
 
-## Task 6: Sample report output
+## Task 7: Sample report output
 
 **File:** `out/report.md`
 
@@ -363,7 +381,7 @@ Also make sure `.gitignore` does NOT ignore `out/report.md` (it currently doesn'
 
 ---
 
-## Task 7: Demo recording section in README
+## Task 8: Demo recording section in README
 
 **File:** `README.md`
 
@@ -394,21 +412,20 @@ See [`out/report.md`](out/report.md) for a sample evaluation report generated by
 
 ---
 
-## Task 8: Update documentation
+## Task 9: Update documentation
 
 ### `CLAUDE.md`
 
-- Add the 5 new goals to the architecture section
+- Update the architecture diagram — the pipeline is now: TTS → ASR → slot extraction (regex) → Claude bot brain → evaluation
+- Remove references to `policy_decision_tool` and `generate_response_tool` as the active bot logic
+- Add `bot_brain.py` to module responsibilities
 - Document the `--real-audio` flag in the Commands section
-- Update the "Extending the Bot" section if needed
+- Note that `ANTHROPIC_API_KEY` is now required for both the bot and the Claude judge
 
 ### `README.md`
 
-- Add the new goals to any goal listing
-- Document the `--real-audio` flag with usage example:
-  ```bash
-  poetry run voice-eval scenarios scenarios/ --real-audio recordings/
-  ```
+- Update the architecture description to reflect LLM-powered bot
+- Document the `--real-audio` flag with usage example
 - Add a section about recording real audio and the expected directory structure:
   ```
   recordings/
@@ -417,10 +434,12 @@ See [`out/report.md`](out/report.md) for a sample evaluation report generated by
       user_2.wav
       ...
   ```
+- Mention that the bot uses Claude Haiku for decisions/responses and optionally Claude for evaluation
 
 **Checklist:**
-- [ ] CLAUDE.md updated
-- [ ] README.md updated
+- [ ] CLAUDE.md updated with new architecture
+- [ ] README.md updated with new architecture
+- [ ] `--real-audio` documented in both
 
 ---
 
@@ -432,8 +451,11 @@ After all tasks, run:
 # All tests pass
 poetry run pytest -v
 
-# Scenarios run with rules judge (existing + new goals if scenarios exist)
+# Scenarios run with rules judge (bot is Claude-powered, judge is rule-based)
 poetry run voice-eval scenarios scenarios/
+
+# Scenarios run with Claude judge (bot AND judge are Claude-powered)
+poetry run voice-eval scenarios scenarios/ --judge claude
 
 # Real audio mode works (will fall back to TTS if no recordings dir exists yet)
 poetry run voice-eval scenarios scenarios/ --real-audio recordings/
@@ -441,14 +463,11 @@ poetry run voice-eval scenarios scenarios/ --real-audio recordings/
 
 ---
 
-## Goal strings (exact, case-sensitive — must match between YAML scenarios and bot_tools.py)
+## Goal strings (exact, case-sensitive — must match between YAML scenarios and bot_brain.py system prompt)
 
-Existing:
 1. `"Return a damaged item"`
 2. `"Request refund for duplicate charge"`
 3. `"Change shipping address"`
-
-New:
 4. `"Cancel an order"`
 5. `"Check order status"`
 6. `"Reset account password"`

@@ -19,7 +19,7 @@ def scenarios(
     report: str = typer.Option("out/report.md", help="Output report path"),
     audio_dir: str = typer.Option("out/audio", help="Audio output directory"),
     model: str = typer.Option("tiny", help="ASR model size"),
-    judge: str = typer.Option("rules", help="Evaluation judge: rules | claude | ollama"),
+    judge: str = typer.Option("rules", help="Evaluation judge: rules | claude"),
 ):
     """Run voice evaluation scenarios."""
     Path(report).parent.mkdir(parents=True, exist_ok=True)
