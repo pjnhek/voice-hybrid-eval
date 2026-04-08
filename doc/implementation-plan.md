@@ -193,12 +193,12 @@ Could add `--bot-mode rules|claude` to CLI to toggle between rule-based and LLM-
 With 80 scenarios averaging 2 turns each = ~160 Claude Haiku calls for the bot + ~160 for the judge = ~320 API calls total. At Haiku pricing that's well under $0.10 for a full run.
 
 **Checklist:**
-- [ ] `voice_eval/bot_brain.py` created with `generate_bot_response` function
-- [ ] `simulator.py` updated to use `generate_bot_response` instead of policy + response tools
-- [ ] Conversation history tracked across turns in `run_scenario`
-- [ ] `extract_slots_tool` still used for slot extraction
-- [ ] Tests in `tests/test_bot_brain.py`
-- [ ] All existing tests still pass (`poetry run pytest`)
+- [x] `voice_eval/bot_brain.py` created with `generate_bot_response` function
+- [x] `simulator.py` updated to use `generate_bot_response` instead of policy + response tools
+- [x] Conversation history tracked across turns in `run_scenario`
+- [x] `extract_slots_tool` still used for slot extraction
+- [x] Tests in `tests/test_bot_brain.py`
+- [x] All existing tests still pass (`poetry run pytest`)
 
 ---
 
