@@ -123,11 +123,11 @@ Add tests for:
 ~10 new tests.
 
 **Checklist:**
-- [ ] New regex patterns in `extract_slots_tool` for email and account_number
-- [ ] 5 new goal branches in `policy_decision_tool`
-- [ ] 7 new response templates in `generate_response_tool` (5 confirmations + 2 ask prompts)
-- [ ] New tests in `test_bot_tools.py`
-- [ ] All existing tests still pass (`poetry run pytest`)
+- [x] New regex patterns in `extract_slots_tool` for email and account_number
+- [x] 5 new goal branches in `policy_decision_tool`
+- [x] 7 new response templates in `generate_response_tool` (5 confirmations + 2 ask prompts)
+- [x] New tests in `test_bot_tools.py`
+- [x] All existing tests still pass (`poetry run pytest`)
 
 ---
 
