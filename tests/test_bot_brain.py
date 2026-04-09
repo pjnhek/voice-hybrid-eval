@@ -30,7 +30,10 @@ def test_generate_bot_response_returns_structured_dict(mocker):
     }
     client.messages.create.assert_called_once()
     assert client.messages.create.call_args.kwargs["model"] == "claude-haiku-4-5"
-    schema = client.messages.create.call_args.kwargs["output_config"]["format"]["schema"]
+    output_format = client.messages.create.call_args.kwargs["output_config"]["format"]
+    assert output_format["type"] == "json_schema"
+    assert "name" not in output_format
+    schema = output_format["schema"]
     assert "detected_intent" in schema["properties"]
     assert "detected_intent" in schema["required"]
 

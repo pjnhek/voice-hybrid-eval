@@ -38,7 +38,6 @@ def generate_bot_response(
         output_config={
             "format": {
                 "type": "json_schema",
-                "name": "bot_response",
                 "schema": _BOT_RESPONSE_SCHEMA,
             }
         },

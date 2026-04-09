@@ -393,10 +393,10 @@ After all other tasks are done:
 Also make sure `.gitignore` does NOT ignore `out/report.md`.
 
 **Checklist:**
-- [ ] `out/report.md` contains a fresh evaluation run
-- [ ] Report shows intent detection accuracy percentage
-- [ ] Report shows per-turn detected intent with ✅/❌
-- [ ] Report has non-empty ASR transcripts
+- [x] `out/report.md` contains a fresh evaluation run
+- [x] Report shows intent detection accuracy percentage
+- [x] Report shows per-turn detected intent with ✅/❌
+- [x] Report has non-empty ASR transcripts
 - [ ] File is committed to the repo
 
 ---
