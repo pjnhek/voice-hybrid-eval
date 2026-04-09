@@ -1,293 +1,17 @@
-# Implementation Plan: Expand Goals & Real Audio Support
+# Implementation Plan: Intent Detection Evaluation Framework
 
-This document is the source of truth for the next round of changes. Codex should implement each task and check it off. Claude Code will review the changes afterward.
-
----
-
-## Task 0: Fix scenario loader and clean up old scenarios
-
-**Status: DONE**
+This document is the source of truth for remaining changes. Codex should implement each task and check it off. Claude Code will review the changes afterward.
 
 ---
 
-## Task 1: Add 5 new goals to `bot_tools.py`
-
-**Status: DONE**
-
----
-
-## Task 2: Remove Ollama judge
-
-**Status: DONE**
-
----
-
-## Task 3: Replace rule-based bot with Claude-powered bot
-
-**Status: DONE**
-
-**This is a major architecture change.** The current bot pipeline uses regex slot extraction, hardcoded if/else policy decisions, and string templates for responses. Replace the policy decision and response generation steps with Claude API calls so the bot can actually understand and respond to users intelligently.
-
-### What changes and what stays
-
-**Keep as-is:**
-- `extract_slots_tool` in `bot_tools.py` — regex slot extraction is fast and deterministic, a reasonable pre-processing step before the LLM
-- `evaluator_claude.py` — the judge stays separate from the bot (different role, could use different models)
-- `evaluator_rules.py` — keep the rules judge as a baseline
-
-**Replace:**
-- `policy_decision_tool` — currently a hardcoded if/else tree. Replace with a Claude call that understands the goal, conversation history, and extracted slots to decide the next action.
-- `generate_response_tool` — currently a template lookup. Replace with a Claude call that generates a natural response.
-
-**Simplify:** Merge policy decision + response generation into a single Claude call. There's no reason to make two API calls when one can decide what to do AND generate the response together.
-
-### New file: `voice_eval/bot_brain.py`
-
-Create a new module that replaces the policy + response pipeline with a single Claude call.
-
-```python
-"""LLM-powered bot brain using Claude for policy decisions and response generation."""
-import json
-from typing import Any, Dict, List
-
-from anthropic import Anthropic
-
-
-def generate_bot_response(
-    client: Anthropic,
-    goal: str,
-    user_input: str,
-    slots: Dict[str, Any],
-    conversation_history: List[Dict[str, str]],
-) -> Dict[str, Any]:
-    """Use Claude to decide the next action and generate a response.
-    
-    Returns dict with keys: "action", "utterance"
-    """
-    system_prompt = f"""You are a customer service bot. Your current task is: {goal}
-
-You have access to the following extracted information from the conversation:
-{json.dumps(slots, indent=2) if slots else "No information extracted yet."}
-
-Based on the conversation so far, decide what to do next and respond naturally.
-
-Rules:
-- If you need information from the customer (order number, card info, email, account number), ask for it politely.
-- If you have enough information to fulfill the request, confirm the action and provide details.
-- Be concise and professional. One to two sentences max.
-- Do NOT make up order numbers, tracking info, or other specific data not in the extracted slots.
-- When confirming an action, reference the specific information the customer provided (e.g., the order number).
-
-Valid actions: ASK_ORDER_NUMBER, ASK_CARD_INFO, ASK_EMAIL, ASK_ACCOUNT_NUMBER, ASK_CLARIFY,
-CONFIRM_RETURN, CONFIRM_ADDRESS_CHANGE, CONFIRM_CANCELLATION, PROCESS_REFUND,
-PROVIDE_STATUS, SEND_RESET_LINK, OPEN_INVESTIGATION, CONFIRM_UPGRADE"""
-
-    messages = []
-    for entry in conversation_history:
-        messages.append({"role": "user", "content": entry["user"]})
-        if "bot" in entry:
-            messages.append({"role": "assistant", "content": entry["bot"]})
-    
-    # Add current turn
-    messages.append({"role": "user", "content": user_input})
-
-    response = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=256,
-        system=system_prompt,
-        messages=messages,
-        output_config={
-            "format": {
-                "type": "json_schema",
-                "name": "bot_response",
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "action": {"type": "string"},
-                        "utterance": {"type": "string"},
-                    },
-                    "required": ["action", "utterance"],
-                    "additionalProperties": False,
-                },
-            }
-        },
-    )
-
-    return json.loads(response.content[0].text)
-```
-
-Key design decisions:
-- Uses `claude-haiku-4-5` for cost efficiency (this runs per conversation turn, not just evaluation)
-- Structured output guarantees valid JSON — no parsing hacks
-- System prompt includes the goal and extracted slots as context
-- Conversation history is passed so Claude understands multi-turn context
-- The action names stay the same as before for compatibility with evaluation
-
-### Modify `voice_eval/simulator.py`
-
-Replace the three tool calls (extract_slots → policy_decision → generate_response) with: extract_slots → `generate_bot_response`.
-
-The new loop body should look like:
-
-```python
-from .bot_brain import generate_bot_response
-
-# ... in run_scenario, inside the step loop:
-
-client = Anthropic()
-
-# 1. Slot extraction (keep rule-based — fast, deterministic)
-slots_result = tool_client.call_tool("extract_slots", {
-    "user_input": user_transcript,
-    "current_slots": slots,
-})
-if slots_result.success:
-    slots = slots_result.data
-
-# 2. Bot response (Claude-powered)
-bot_response = generate_bot_response(
-    client=client,
-    goal=s.goal,
-    user_input=user_transcript,
-    slots=slots,
-    conversation_history=conversation_history,
-)
-
-bot_text = bot_response["utterance"]
-action = bot_response["action"]
-
-# 3. Update conversation history for next turn
-conversation_history.append({"user": user_transcript, "bot": bot_text})
-```
-
-Important changes to `run_scenario`:
-- Add `conversation_history: List[Dict[str, str]] = []` alongside `slots = {}`
-- Create `client = Anthropic()` once at the top of `run_scenario`
-- Remove the `policy_decision` and `generate_response` tool calls
-- Keep the `extract_slots` tool call
-- Pass `conversation_history` to `generate_bot_response`
-- Pass the shared Claude client to `generate_bot_response`
-- After getting the response, append to `conversation_history`
-- If bot generation raises, keep the fallback utterance but mark the turn as failed and record the error on the transcript entry
-
-### Keep `bot_tools.py` and `tool_client.py`
-
-Don't delete them. `extract_slots_tool` is still used. The policy and response functions become dead code — leave them for now as a reference/fallback. They could be used later for a `--bot-mode rules` flag if desired.
-
-### Modify `tool_client.py`
-
-Only `extract_slots` should be imported and registered. Remove the registry entries for `policy_decision` and `generate_response`, but keep those functions in `bot_tools.py`.
-
-### Add `--bot-mode` flag (optional, low priority)
-
-Could add `--bot-mode rules|claude` to CLI to toggle between rule-based and LLM-powered bot. This lets you compare how the rule-based bot vs. the LLM bot handles the same scenarios. Nice for a portfolio story but not required for this task.
-
-### Tests
-
-**File:** `tests/test_bot_brain.py` (new)
-
-- Mock `anthropic.Anthropic` like in `test_evaluator_claude.py`
-- Test that `generate_bot_response` returns the expected dict shape
-- Test that conversation history is passed to the API
-- Test with empty slots vs populated slots
-- ~4 tests
-
-### Cost consideration
-
-With 80 scenarios averaging 2 turns each = ~160 Claude Haiku calls for the bot + ~160 for the judge = ~320 API calls total. At Haiku pricing that's well under $0.10 for a full run.
-
-**Checklist:**
-- [x] `voice_eval/bot_brain.py` created with `generate_bot_response` function
-- [x] `simulator.py` updated to use `generate_bot_response` instead of policy + response tools
-- [x] Conversation history tracked across turns in `run_scenario`
-- [x] `extract_slots_tool` still used for slot extraction
-- [x] Tests in `tests/test_bot_brain.py`
-- [x] All existing tests still pass (`poetry run pytest`)
-
----
-
-## Task 4: Replace pyttsx3 with gTTS
-
-**Files:** `voice_eval/audio/tts.py`, `pyproject.toml`
-
-pyttsx3 produces robotic, sometimes near-silent audio that faster-whisper can't transcribe reliably (this is why scenarios show blank ASR transcripts). Replace it with gTTS (Google Text-to-Speech), which produces natural-sounding audio for free.
-
-### Changes to `pyproject.toml`
-
-- Remove `pyttsx3` from dependencies
-- Add `gtts` to dependencies
-
-### Changes to `voice_eval/audio/tts.py`
-
-Replace the entire implementation:
-
-```python
-from pathlib import Path
-from gtts import gTTS
-
-
-def synthesize(text: str, out_wav: str) -> None:
-    """Synthesize text to speech and save as audio file."""
-    Path(out_wav).parent.mkdir(parents=True, exist_ok=True)
-    tts = gTTS(text=text, lang="en")
-    # gTTS outputs MP3 natively. faster-whisper reads both MP3 and WAV
-    # via ffmpeg decoding, so the .wav extension is fine.
-    tts.save(out_wav)
-```
-
-Note: gTTS requires an internet connection. This is acceptable — the project already requires internet for the Claude API. If offline support matters later, we can add a fallback.
-
-### Update tests
-
-If any existing tests mock or reference `pyttsx3`, update them to reference `gtts` instead.
-
-### Run `poetry lock` and `poetry install` after changing deps.
-
-**Checklist:**
-- [x] `pyttsx3` removed from `pyproject.toml`, `gtts` added
-- [x] `voice_eval/audio/tts.py` rewritten to use gTTS
-- [x] `poetry lock && poetry install` succeeds
-- [x] `poetry run voice-eval scenarios scenarios/` produces non-empty ASR transcripts
-- [x] All existing tests still pass
-
-Verification note: `poetry run voice-eval scenarios scenarios/` completed after network access was available, and the generated report contains non-empty ASR output (for example, `out/audio/check_status_004/user_1.wav` transcribed as `"where's my order? it was supposed to be here three days ago, and i've got nothing."`). All bot turns still fell back because Anthropic credentials were not configured in this environment.
-
----
-
-## Task 4.1: Load `.env` with python-dotenv
-
-**Files:** `pyproject.toml`, `voice_eval/cli.py`
-
-The project has an `env.example` that documents `ANTHROPIC_API_KEY`, but nothing actually loads `.env` at runtime. The Anthropic SDK reads the env var directly, so users must `export` it manually. Fix this so `.env` works as advertised.
-
-### Changes to `pyproject.toml`
-
-Add `python-dotenv` to dependencies:
-
-```toml
-python-dotenv = "*"
-```
-
-### Changes to `voice_eval/cli.py`
-
-Add `load_dotenv()` at the top of the `main()` callback so environment variables are loaded before any command runs:
-
-```python
-from dotenv import load_dotenv
-
-@app.callback()
-def main() -> None:
-    """Voice evaluation command group."""
-    load_dotenv()
-```
-
-### Run `poetry lock && poetry install` after changing deps.
-
-**Checklist:**
-- [x] `python-dotenv` added to `pyproject.toml`
-- [x] `load_dotenv()` called in `cli.py` `main()` callback
-- [x] `poetry lock && poetry install` succeeds
-- [x] All existing tests still pass
+## Completed Tasks (0–4.1)
+
+- **Task 0:** Fix scenario loader and clean up old scenarios — DONE
+- **Task 1:** Add 5 new goals to `bot_tools.py` — DONE
+- **Task 2:** Remove Ollama judge — DONE
+- **Task 3:** Replace rule-based bot with Claude-powered bot — DONE
+- **Task 4:** Replace pyttsx3 with gTTS — DONE
+- **Task 4.1:** Load `.env` with python-dotenv — DONE
 
 ---
 
@@ -295,7 +19,7 @@ def main() -> None:
 
 **Files:** `voice_eval/simulator.py`, `voice_eval/cli.py`
 
-Add a `--real-audio` flag that tells the simulator to use pre-recorded WAV files instead of generating them via TTS.
+Add a `--real-audio` flag that tells the simulator to use pre-recorded audio files instead of generating them via TTS.
 
 ### How it works
 
@@ -318,7 +42,7 @@ Pass it through to `run_directory` and `run_scenario`.
 
 ### Changes to `simulator.py`
 
-In `run_scenario`, change the user audio section:
+Add a helper and update the user audio section in `run_scenario`:
 
 ```python
 _AUDIO_EXTENSIONS = (".wav", ".m4a", ".mp3", ".ogg", ".flac")
@@ -352,19 +76,20 @@ else:
 
 Add `real_audio_dir` parameter and pass through to `run_scenario`.
 
-### Add a test
+### Tests
 
-**File:** `tests/test_simulator.py` (new file)
+**File:** `tests/test_simulator.py`
 
 Test that when a real audio file exists at the expected path (any supported extension), TTS `synthesize` is NOT called for that step. Also test that the extension priority order works (`.wav` preferred over `.m4a` if both exist). Mock both `synthesize` and `transcribe`.
 
 **Checklist:**
-- [ ] `--real-audio` option added to CLI
-- [ ] `run_scenario` checks for pre-recorded WAVs before calling TTS
-- [ ] Falls back to TTS when real audio file is missing
-- [ ] `run_directory` passes real_audio_dir through
-- [ ] Test in `tests/test_simulator.py`
-- [ ] All existing tests still pass
+- [x] `--real-audio` option added to CLI
+- [x] `_find_real_audio` helper checks all extensions in priority order
+- [x] `run_scenario` checks for pre-recorded files before calling TTS
+- [x] Falls back to TTS when no real audio file is found
+- [x] `run_directory` passes `real_audio_dir` through
+- [x] Tests in `tests/test_simulator.py` for real audio path and extension priority
+- [x] All existing tests still pass
 
 ---
 
@@ -416,54 +141,263 @@ Note: Only run `pytest`, NOT the full scenario evaluation. The scenario run requ
 
 ---
 
-## Task 7: Sample report output
+## Task 7: Intent detection mode
 
-**File:** `out/report.md`
+**This is the core feature change.** Currently the bot is handed the `goal` string in its system prompt — it already knows the customer's intent. This makes the evaluation shallow. Change the bot so it must **infer intent from the conversation itself**, then evaluate whether it detected the right one.
 
-Make sure a sample evaluation report is committed to the repo so employers can see what the output looks like without running anything. This file already exists but may be stale after the gTTS switch and new goals.
+### Design overview
 
-After all other tasks are done:
-1. Run `poetry run voice-eval scenarios scenarios/` locally
-2. Verify `out/report.md` shows passing scenarios with non-empty ASR transcripts
-3. Commit the updated `out/report.md`
+The `goal` field in YAML scenarios becomes **ground truth for evaluation**, not an instruction to the bot. The bot receives no goal — it must figure out what the customer wants from their utterances.
 
-Also make sure `.gitignore` does NOT ignore `out/report.md` (it currently doesn't — the audio files are ignored but the report is kept).
+### Changes to `voice_eval/bot_brain.py`
+
+**1. Add `detected_intent` to the structured output schema:**
+
+```python
+_BOT_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "action": {"type": "string"},
+        "utterance": {"type": "string"},
+        "detected_intent": {"type": "string"},
+    },
+    "required": ["action", "utterance", "detected_intent"],
+    "additionalProperties": False,
+}
+```
+
+**2. Remove `goal` from the function signature. Replace the system prompt:**
+
+```python
+def generate_bot_response(
+    client: Anthropic,
+    user_input: str,
+    slots: Dict[str, Any],
+    conversation_history: List[HistoryEntry],
+) -> Dict[str, Any]:
+```
+
+**3. New system prompt** (replaces `_create_system_prompt`):
+
+```python
+def _create_system_prompt(slots: Dict[str, Any]) -> str:
+    extracted_info = (
+        json.dumps(slots, indent=2, sort_keys=True)
+        if slots
+        else "No information extracted yet."
+    )
+
+    return f"""You are a customer service bot for a retail company. The customer is calling in and you must figure out what they need, then help them.
+
+You have access to the following extracted information from the conversation:
+{extracted_info}
+
+For every response, you must:
+1. Determine what the customer's intent is based on everything they've said so far.
+2. Decide the next action to take.
+3. Respond naturally to the customer.
+
+Rules:
+- If you need information from the customer (order number, card info, email, account number), ask for it politely.
+- If you have enough information to fulfill the request, confirm the action and provide details.
+- Be concise and professional. One to two sentences max.
+- Do NOT make up order numbers, tracking info, or other specific data not in the extracted slots.
+- When confirming an action, reference the specific information the customer provided.
+
+Your detected_intent must be one of these exact strings:
+- "Return a damaged item"
+- "Request refund for duplicate charge"
+- "Change shipping address"
+- "Cancel an order"
+- "Check order status"
+- "Reset account password"
+- "Report a missing package"
+- "Upgrade subscription plan"
+
+Valid actions: ASK_ORDER_NUMBER, ASK_CARD_INFO, ASK_EMAIL, ASK_ACCOUNT_NUMBER, ASK_CLARIFY,
+CONFIRM_RETURN, CONFIRM_ADDRESS_CHANGE, CONFIRM_CANCELLATION, PROCESS_REFUND,
+PROVIDE_STATUS, SEND_RESET_LINK, OPEN_INVESTIGATION, CONFIRM_UPGRADE"""
+```
+
+Key changes from the old prompt:
+- No `goal` given — the bot must infer it
+- `detected_intent` is required in the response, constrained to the 8 known intent strings
+- The prompt explicitly tells the bot to determine intent from what the customer has said
+
+### Changes to `voice_eval/simulator.py`
+
+**1. Remove `goal` from the `generate_bot_response` call:**
+
+```python
+bot_response = generate_bot_response(
+    client=client,
+    user_input=user_transcript,
+    slots=slots,
+    conversation_history=conversation_history,
+)
+
+bot_text = bot_response["utterance"]
+action = bot_response["action"]
+detected_intent = bot_response["detected_intent"]
+```
+
+**2. Evaluate intent detection** — compare `detected_intent` against `s.goal`:
+
+```python
+intent_correct = detected_intent == s.goal
+```
+
+**3. Add intent fields to the transcript entry:**
+
+```python
+transcript.append({
+    "turn": i,
+    "user_text": user_text,
+    "user_asr": user_transcript,
+    "bot_text": bot_text,
+    "action": action,
+    "slots": dict(slots),
+    "detected_intent": detected_intent,
+    "expected_intent": s.goal,
+    "intent_correct": intent_correct,
+    "pass": ok,
+    "error": error,
+    "expectation": step.bot_expect or {},
+    "user_wav": user_wav,
+    "bot_wav": bot_wav,
+})
+```
+
+**4. Add intent accuracy to scenario result:**
+
+```python
+intent_results = [entry["intent_correct"] for entry in transcript]
+# Intent is considered correct if the bot got it right on the LAST turn
+# (it may take 1-2 turns to figure it out, that's fine)
+intent_detected = intent_results[-1] if intent_results else False
+# Also track which turn the bot first got it right
+first_correct_turn = None
+for entry in transcript:
+    if entry["intent_correct"]:
+        first_correct_turn = entry["turn"]
+        break
+
+return {
+    "scenario_id": s.id,
+    "goal": s.goal,
+    "scenario_pass": scenario_pass,
+    "intent_detected": intent_detected,
+    "first_correct_turn": first_correct_turn,
+    "steps_expected": steps_expected,
+    "steps_passed": steps_passed,
+    "transcript": transcript,
+}
+```
+
+### Changes to `voice_eval/reporters/markdown.py`
+
+Update the report to show intent detection results.
+
+**1. Add intent accuracy to the summary table:**
+
+```python
+f.write("| Scenario | Intent | Result | Steps Passed |\n")
+f.write("|----------|--------|--------|--------------|\n")
+
+for result in results:
+    status = "✅ PASS" if result["scenario_pass"] else "❌ FAIL"
+    intent = "✅" if result["intent_detected"] else "❌"
+    first = f" (turn {result['first_correct_turn']})" if result["first_correct_turn"] else ""
+    f.write(f"| {result['scenario_id']} | {intent}{first} | {status} | {result['steps_passed']}/{result['steps_expected']} |\n")
+```
+
+**2. Add an overall intent accuracy summary at the top:**
+
+```python
+total = len(results)
+intent_correct = sum(1 for r in results if r["intent_detected"])
+f.write(f"**Intent Detection Accuracy:** {intent_correct}/{total} ({100 * intent_correct // total}%)\n\n")
+```
+
+**3. Show intent per turn in the detailed section:**
+
+```python
+f.write(f"**Detected Intent:** {turn['detected_intent']}")
+if turn['intent_correct']:
+    f.write(" ✅\n\n")
+else:
+    f.write(f" ❌ (expected: {turn['expected_intent']})\n\n")
+```
+
+### Changes to `voice_eval/cli.py`
+
+Update the summary print to include intent accuracy:
+
+```python
+intent_correct = sum(1 for r in results if r["intent_detected"])
+print(f"{passed_scenarios}/{total_scenarios} scenarios passed")
+print(f"Intent detection: {intent_correct}/{total_scenarios} correct")
+```
+
+### Tests
+
+**File:** `tests/test_bot_brain.py`
+
+Update existing tests — `generate_bot_response` no longer takes `goal`. Mock responses now include `detected_intent`. Add:
+- Test that system prompt does NOT contain a goal/task instruction
+- Test that system prompt lists all 8 valid intents
+- Test that `detected_intent` is returned in the response dict
+
+**File:** `tests/test_simulator.py`
+
+Update existing tests — mock `generate_bot_response` returns now include `detected_intent`. Add:
+- Test that transcript entries include `detected_intent`, `expected_intent`, `intent_correct`
+- Test that `intent_detected` in result reflects last turn's intent correctness
+- Test that `first_correct_turn` tracks when intent was first detected
+
+**File:** `tests/test_markdown_report.py` (new)
+
+- Test that report includes intent accuracy summary
+- Test that per-turn output shows detected intent with ✅/❌
 
 **Checklist:**
-- [ ] `out/report.md` contains a fresh evaluation run with passing scenarios
-- [ ] Report has non-empty ASR transcripts (proves gTTS works)
-- [ ] File is committed to the repo
+- [ ] `bot_brain.py`: `goal` removed from function signature
+- [ ] `bot_brain.py`: system prompt rewritten — no goal, bot must infer intent
+- [ ] `bot_brain.py`: `detected_intent` added to structured output schema
+- [ ] `bot_brain.py`: `_create_system_prompt` no longer takes `goal`
+- [ ] `simulator.py`: `generate_bot_response` called without `goal`
+- [ ] `simulator.py`: `detected_intent` extracted from response and compared to `s.goal`
+- [ ] `simulator.py`: transcript entries include `detected_intent`, `expected_intent`, `intent_correct`
+- [ ] `simulator.py`: scenario result includes `intent_detected` and `first_correct_turn`
+- [ ] `reporters/markdown.py`: summary table shows intent column
+- [ ] `reporters/markdown.py`: overall intent accuracy percentage at top
+- [ ] `reporters/markdown.py`: per-turn detected intent with ✅/❌
+- [ ] `cli.py`: print includes intent accuracy
+- [ ] Tests updated in `test_bot_brain.py` (no goal, detected_intent in response)
+- [ ] Tests updated in `test_simulator.py` (intent tracking fields)
+- [ ] Tests added in `test_markdown_report.py` (intent in report)
+- [ ] All existing tests still pass
 
 ---
 
-## Task 8: Demo recording section in README
+## Task 8: Sample report output
 
-**File:** `README.md`
+**File:** `out/report.md`
 
-Add a section near the top of the README (after the description, before installation) with a placeholder for a demo recording. The user (pnhek) will record this themselves — Codex just needs to add the markdown structure.
+After all other tasks are done:
+1. Run `poetry run voice-eval scenarios scenarios/` locally
+2. Verify `out/report.md` shows intent detection accuracy and per-turn intent results
+3. Verify non-empty ASR transcripts
+4. Commit the updated `out/report.md`
 
-Add this section:
-
-```markdown
-## Demo
-
-> A short walkthrough of installation, running scenarios, and viewing the evaluation report.
-
-<!-- Replace the link below with your Loom/YouTube recording URL -->
-[Watch the demo](https://example.com/your-demo-link)
-```
-
-Also add a note at the bottom of the README:
-
-```markdown
-## Sample Output
-
-See [`out/report.md`](out/report.md) for a sample evaluation report generated by the framework.
-```
+Also make sure `.gitignore` does NOT ignore `out/report.md`.
 
 **Checklist:**
-- [ ] Demo section added to README with placeholder link
-- [ ] Sample Output section added to README linking to `out/report.md`
+- [ ] `out/report.md` contains a fresh evaluation run
+- [ ] Report shows intent detection accuracy percentage
+- [ ] Report shows per-turn detected intent with ✅/❌
+- [ ] Report has non-empty ASR transcripts
+- [ ] File is committed to the repo
 
 ---
 
@@ -471,15 +405,17 @@ See [`out/report.md`](out/report.md) for a sample evaluation report generated by
 
 ### `CLAUDE.md`
 
-- Update the architecture diagram — the pipeline is now: TTS → ASR → slot extraction (regex) → Claude bot brain → evaluation
+- Update the architecture diagram — the pipeline is now: TTS → ASR → slot extraction (regex) → Claude bot brain (intent detection + response) → evaluation
 - Remove references to `policy_decision_tool` and `generate_response_tool` as the active bot logic
-- Add `bot_brain.py` to module responsibilities
+- Add `bot_brain.py` to module responsibilities — note that it infers intent, not receives it
 - Document the `--real-audio` flag in the Commands section
-- Note that `ANTHROPIC_API_KEY` is now required for both the bot and the Claude judge
+- Note that `ANTHROPIC_API_KEY` is required (bot + optional Claude judge)
+- Document that the bot receives no goal — it must detect intent from the conversation
 
 ### `README.md`
 
-- Update the architecture description to reflect LLM-powered bot
+- Update the project description: this is an **intent detection and dialogue evaluation framework**, not just a voice bot evaluator
+- Update the architecture description to reflect intent detection
 - Document the `--real-audio` flag with usage example
 - Add a section about recording real audio and the expected directory structure:
   ```
@@ -489,12 +425,14 @@ See [`out/report.md`](out/report.md) for a sample evaluation report generated by
       user_2.m4a
       ...
   ```
-- Mention that the bot uses Claude Haiku for decisions/responses and optionally Claude for evaluation
+- Explain how intent detection is evaluated (bot returns `detected_intent`, compared against scenario `goal` as ground truth)
+- Add a Sample Output section linking to `out/report.md`
 
 **Checklist:**
-- [ ] CLAUDE.md updated with new architecture
-- [ ] README.md updated with new architecture
+- [ ] CLAUDE.md updated with intent detection architecture
+- [ ] README.md updated with intent detection focus
 - [ ] `--real-audio` documented in both
+- [ ] Intent detection evaluation explained in README
 
 ---
 
@@ -506,19 +444,19 @@ After all tasks, run:
 # All tests pass
 poetry run pytest -v
 
-# Scenarios run with rules judge (bot is Claude-powered, judge is rule-based)
+# Run with rules judge — bot detects intent, judge checks response keywords
 poetry run voice-eval scenarios scenarios/
 
-# Scenarios run with Claude judge (bot AND judge are Claude-powered)
+# Run with Claude judge — bot detects intent, Claude judges response quality
 poetry run voice-eval scenarios scenarios/ --judge claude
 
-# Real audio mode works (will fall back to TTS if no recordings dir exists yet)
+# Real audio mode
 poetry run voice-eval scenarios scenarios/ --real-audio recordings/
 ```
 
 ---
 
-## Goal strings (exact, case-sensitive — must match between YAML scenarios and bot_brain.py system prompt)
+## Goal strings (exact, case-sensitive — ground truth labels in YAML, also the valid `detected_intent` values)
 
 1. `"Return a damaged item"`
 2. `"Request refund for duplicate charge"`

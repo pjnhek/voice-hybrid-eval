@@ -2,7 +2,7 @@ from pathlib import Path
 
 from voice_eval.bot_tools import ToolResult
 from voice_eval.scenario import Scenario, Step
-from voice_eval.simulator import run_scenario
+from voice_eval.simulator import _find_real_audio, run_directory, run_scenario
 
 
 def test_run_scenario_uses_extract_slots_and_tracks_conversation_history(mocker, tmp_path):
@@ -240,3 +240,140 @@ def test_run_scenario_counts_only_steps_with_expectations(mocker, tmp_path):
     assert result["steps_expected"] == 1
     assert result["steps_passed"] == 1
     assert result["scenario_pass"] is True
+
+
+def test_find_real_audio_prefers_higher_priority_extension(tmp_path):
+    scenario_dir = tmp_path / "check_order_status_001"
+    scenario_dir.mkdir()
+    wav_path = scenario_dir / "user_1.wav"
+    m4a_path = scenario_dir / "user_1.m4a"
+    wav_path.write_text("wav")
+    m4a_path.write_text("m4a")
+
+    result = _find_real_audio(tmp_path, "check_order_status_001", 1)
+
+    assert result == str(wav_path)
+
+
+def test_run_scenario_uses_real_audio_without_synthesizing_user_turn(mocker, tmp_path):
+    scenario = Scenario(
+        id="check_order_status_001",
+        goal="Check order status",
+        steps=[Step(user="Where is my order?", bot_expect={"contains": "status"})],
+        acceptance={},
+    )
+    real_audio_dir = tmp_path / "real-audio"
+    real_audio_path = real_audio_dir / scenario.id / "user_1.mp3"
+    real_audio_path.parent.mkdir(parents=True)
+    real_audio_path.write_text("audio")
+
+    mocker.patch("voice_eval.simulator.Anthropic", return_value=mocker.sentinel.client)
+    synthesize = mocker.patch("voice_eval.simulator.synthesize")
+    transcribe = mocker.patch(
+        "voice_eval.simulator.transcribe",
+        return_value="Where is my order?",
+    )
+
+    tool_client = mocker.Mock()
+    tool_client.call_tool.return_value = ToolResult(success=True, data={})
+    mocker.patch("voice_eval.simulator.ToolClient", return_value=tool_client)
+    mocker.patch(
+        "voice_eval.simulator.generate_bot_response",
+        return_value={"action": "PROVIDE_STATUS", "utterance": "Your order is pending."},
+    )
+    mocker.patch("voice_eval.simulator.check_bot_expect_enhanced", return_value=True)
+
+    result = run_scenario(
+        scenario,
+        Path(tmp_path),
+        model_size="tiny",
+        judge="rules",
+        real_audio_dir=real_audio_dir,
+    )
+
+    synthesize.assert_called_once_with(
+        "Your order is pending.",
+        f"{tmp_path}/{scenario.id}/bot_1.wav",
+    )
+    transcribe.assert_called_once_with(str(real_audio_path), model_size="tiny")
+    assert result["transcript"][0]["user_wav"] == str(real_audio_path)
+
+
+def test_run_scenario_falls_back_to_tts_when_real_audio_is_missing(mocker, tmp_path):
+    scenario = Scenario(
+        id="check_order_status_001",
+        goal="Check order status",
+        steps=[Step(user="Where is my order?", bot_expect={"contains": "status"})],
+        acceptance={},
+    )
+    real_audio_dir = tmp_path / "real-audio"
+
+    mocker.patch("voice_eval.simulator.Anthropic", return_value=mocker.sentinel.client)
+    synthesize = mocker.patch("voice_eval.simulator.synthesize")
+    transcribe = mocker.patch(
+        "voice_eval.simulator.transcribe",
+        return_value="Where is my order?",
+    )
+
+    tool_client = mocker.Mock()
+    tool_client.call_tool.return_value = ToolResult(success=True, data={})
+    mocker.patch("voice_eval.simulator.ToolClient", return_value=tool_client)
+    mocker.patch(
+        "voice_eval.simulator.generate_bot_response",
+        return_value={"action": "PROVIDE_STATUS", "utterance": "Your order is pending."},
+    )
+    mocker.patch("voice_eval.simulator.check_bot_expect_enhanced", return_value=True)
+
+    run_scenario(
+        scenario,
+        Path(tmp_path),
+        model_size="tiny",
+        judge="rules",
+        real_audio_dir=real_audio_dir,
+    )
+
+    synthesize.assert_any_call(
+        "Where is my order?",
+        f"{tmp_path}/{scenario.id}/user_1.wav",
+    )
+    synthesize.assert_any_call(
+        "Your order is pending.",
+        f"{tmp_path}/{scenario.id}/bot_1.wav",
+    )
+    transcribe.assert_called_once_with(
+        f"{tmp_path}/{scenario.id}/user_1.wav",
+        model_size="tiny",
+    )
+
+
+def test_run_directory_passes_real_audio_dir_through(mocker, tmp_path):
+    scenario = Scenario(
+        id="check_order_status_001",
+        goal="Check order status",
+        steps=[],
+        acceptance={},
+    )
+
+    mocker.patch("voice_eval.simulator.load_scenarios", return_value=[scenario])
+    run_scenario_mock = mocker.patch(
+        "voice_eval.simulator.run_scenario",
+        return_value={"scenario_id": scenario.id},
+    )
+    real_audio_dir = tmp_path / "real-audio"
+
+    result = run_directory(
+        tmp_path / "scenarios",
+        tmp_path / "audio",
+        model_size="base",
+        judge="claude",
+        real_audio_dir=real_audio_dir,
+    )
+
+    assert result == [{"scenario_id": scenario.id}]
+    run_scenario_mock.assert_called_once_with(
+        scenario,
+        tmp_path / "audio",
+        "base",
+        "claude",
+        real_audio_dir=real_audio_dir,
+    )

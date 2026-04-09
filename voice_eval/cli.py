@@ -21,6 +21,10 @@ def scenarios(
     path: str = typer.Argument(..., help="Path to scenarios directory"),
     report: str = typer.Option("out/report.md", help="Output report path"),
     audio_dir: str = typer.Option("out/audio", help="Audio output directory"),
+    real_audio: str = typer.Option(
+        None,
+        help="Directory with pre-recorded user audio files (.wav, .m4a, .mp3, .ogg, .flac)",
+    ),
     model: str = typer.Option("tiny", help="ASR model size"),
     judge: str = typer.Option("rules", help="Evaluation judge: rules | claude"),
 ):
@@ -28,7 +32,13 @@ def scenarios(
     Path(report).parent.mkdir(parents=True, exist_ok=True)
     Path(audio_dir).mkdir(parents=True, exist_ok=True)
 
-    results = run_directory(Path(path), Path(audio_dir), model_size=model, judge=judge)
+    results = run_directory(
+        Path(path),
+        Path(audio_dir),
+        model_size=model,
+        judge=judge,
+        real_audio_dir=real_audio,
+    )
     write_markdown_report(results, Path(report))
 
     total_scenarios = len(results)

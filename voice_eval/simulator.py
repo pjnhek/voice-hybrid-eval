@@ -16,20 +16,44 @@ from .scenario import Scenario, load_scenarios
 
 logger = logging.getLogger(__name__)
 
+_AUDIO_EXTENSIONS = (".wav", ".m4a", ".mp3", ".ogg", ".flac")
 
-def run_scenario(s: Scenario, audio_dir: Path, model_size: str = "tiny", judge: str = "rules") -> Dict[str, Any]:
+
+def _find_real_audio(real_audio_dir: Path, scenario_id: str, turn: int) -> str | None:
+    """Find a pre-recorded audio file for a given scenario turn."""
+    for ext in _AUDIO_EXTENSIONS:
+        candidate = real_audio_dir / scenario_id / f"user_{turn}{ext}"
+        if candidate.exists():
+            return str(candidate)
+    return None
+
+
+def run_scenario(
+    s: Scenario,
+    audio_dir: Path,
+    model_size: str = "tiny",
+    judge: str = "rules",
+    real_audio_dir: str | Path | None = None,
+) -> Dict[str, Any]:
     """Run a single scenario through the hybrid voice loop."""
     client = Anthropic()
     tool_client = ToolClient()
     transcript = []
     slots = {}
     conversation_history: List[HistoryEntry] = []
+    real_audio_root = Path(real_audio_dir) if real_audio_dir is not None else None
 
     for i, step in enumerate(s.steps, start=1):
         user_text = step.user or ""
-        user_wav = f"{audio_dir}/{s.id}/user_{i}.wav"
-        synthesize(user_text, user_wav)
+        real_audio_file = None
+        if real_audio_root is not None:
+            real_audio_file = _find_real_audio(real_audio_root, s.id, i)
 
+        if real_audio_file:
+            user_wav = real_audio_file
+        else:
+            user_wav = f"{audio_dir}/{s.id}/user_{i}.wav"
+            synthesize(user_text, user_wav)
         user_transcript = transcribe(user_wav, model_size=model_size)
 
         slots_result = tool_client.call_tool("extract_slots", {
@@ -101,13 +125,25 @@ def run_scenario(s: Scenario, audio_dir: Path, model_size: str = "tiny", judge: 
     }
 
 
-def run_directory(dir_path: Path, audio_dir: Path, model_size: str = "tiny", judge: str = "rules") -> List[Dict[str, Any]]:
+def run_directory(
+    dir_path: Path,
+    audio_dir: Path,
+    model_size: str = "tiny",
+    judge: str = "rules",
+    real_audio_dir: str | Path | None = None,
+) -> List[Dict[str, Any]]:
     """Load scenarios and run all of them."""
     scenarios = load_scenarios(dir_path)
     results = []
 
     for scenario in scenarios:
-        result = run_scenario(scenario, audio_dir, model_size, judge)
+        result = run_scenario(
+            scenario,
+            audio_dir,
+            model_size,
+            judge,
+            real_audio_dir=real_audio_dir,
+        )
         results.append(result)
 
     return results
