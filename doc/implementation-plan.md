@@ -254,6 +254,43 @@ Verification note: `poetry run voice-eval scenarios scenarios/` completed after 
 
 ---
 
+## Task 4.1: Load `.env` with python-dotenv
+
+**Files:** `pyproject.toml`, `voice_eval/cli.py`
+
+The project has an `env.example` that documents `ANTHROPIC_API_KEY`, but nothing actually loads `.env` at runtime. The Anthropic SDK reads the env var directly, so users must `export` it manually. Fix this so `.env` works as advertised.
+
+### Changes to `pyproject.toml`
+
+Add `python-dotenv` to dependencies:
+
+```toml
+python-dotenv = "*"
+```
+
+### Changes to `voice_eval/cli.py`
+
+Add `load_dotenv()` at the top of the `main()` callback so environment variables are loaded before any command runs:
+
+```python
+from dotenv import load_dotenv
+
+@app.callback()
+def main() -> None:
+    """Voice evaluation command group."""
+    load_dotenv()
+```
+
+### Run `poetry lock && poetry install` after changing deps.
+
+**Checklist:**
+- [x] `python-dotenv` added to `pyproject.toml`
+- [x] `load_dotenv()` called in `cli.py` `main()` callback
+- [x] `poetry lock && poetry install` succeeds
+- [x] All existing tests still pass
+
+---
+
 ## Task 5: Add real audio input mode to `simulator.py`
 
 **Files:** `voice_eval/simulator.py`, `voice_eval/cli.py`

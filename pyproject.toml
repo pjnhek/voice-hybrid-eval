@@ -10,6 +10,7 @@ packages = [{ include = "voice_eval" }]
 python = "^3.11"
 faster-whisper = "*"
 gtts = "*"
+python-dotenv = "*"
 pyyaml = "*"
 typer = "*"
 rich = "*"

@@ -1,5 +1,7 @@
 # Command line interface for voice evaluation system
 from pathlib import Path
+
+from dotenv import load_dotenv
 import typer
 
 from .reporters.markdown import write_markdown_report
@@ -11,6 +13,7 @@ app = typer.Typer()
 @app.callback()
 def main() -> None:
     """Voice evaluation command group."""
+    load_dotenv()
 
 
 @app.command()
