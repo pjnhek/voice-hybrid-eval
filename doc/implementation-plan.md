@@ -401,6 +401,230 @@ Also make sure `.gitignore` does NOT ignore `out/report.md`.
 
 ---
 
+## Task 8.1: Intent-routed action policy
+
+**This replaces the current single broad Claude prompt with a two-stage flow.**
+
+**Files:** `voice_eval/bot_brain.py`, `tests/test_bot_brain.py`
+
+Keep intent detection LLM-driven, but stop asking the same prompt to infer intent, choose the workflow, and word the reply all at once.
+
+### Design overview
+
+The bot should work more like lightweight tool calling:
+
+1. **Intent detection call**
+   - Input: conversation history, latest ASR transcript, extracted slots
+   - Output: exactly one of the 8 known intents
+
+2. **Intent-routed response call**
+   - Input: detected intent, conversation history, latest ASR transcript, extracted slots
+   - Output: `action` + `utterance`
+   - The prompt is now **intent-specific** and includes only the allowed actions and workflow rules for that intent
+
+This keeps the model flexible where it helps most (intent classification), but constrains policy behavior after routing so the bot acts more like an agent choosing from a narrow tool set.
+
+### Why this change is needed
+
+The current broad prompt is already strong at intent detection, but it is too loose at workflow:
+- It often asks for the wrong slot for a given intent
+- It sometimes asks extra follow-up questions even when the benchmark expects a final action
+- It often says the right thing semantically, but misses the exact confirmation wording the rules judge is looking for
+
+The scenario suite is effectively an **intent-routing benchmark with one required slot per flow**. Once the relevant slot is present, the bot should usually perform the final action immediately.
+
+### Changes to `voice_eval/bot_brain.py`
+
+**1. Split bot generation into two internal stages**
+
+Keep the public API the same:
+
+```python
+def generate_bot_response(
+    client: Anthropic,
+    user_input: str,
+    slots: Dict[str, Any],
+    conversation_history: List[HistoryEntry],
+) -> Dict[str, Any]:
+```
+
+But internally split it into:
+
+```python
+def detect_intent(...) -> str
+def generate_intent_response(...) -> Dict[str, str]
+```
+
+`generate_bot_response()` should orchestrate both calls and still return:
+
+```python
+{
+    "action": "...",
+    "utterance": "...",
+    "detected_intent": "...",
+}
+```
+
+This keeps `simulator.py` unchanged.
+
+**2. Add a strict intent-detection schema**
+
+Use a structured output schema constrained to the exact 8 allowed intents:
+
+```python
+_INTENT_DETECTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "detected_intent": {
+            "type": "string",
+            "enum": [
+                "Return a damaged item",
+                "Request refund for duplicate charge",
+                "Change shipping address",
+                "Cancel an order",
+                "Check order status",
+                "Reset account password",
+                "Report a missing package",
+                "Upgrade subscription plan",
+            ],
+        },
+    },
+    "required": ["detected_intent"],
+    "additionalProperties": False,
+}
+```
+
+**3. Add an intent policy map**
+
+Create a single source of truth describing each routed workflow:
+
+```python
+_INTENT_POLICIES = {
+    "Cancel an order": {
+        "required_slot": "order_number",
+        "ask_action": "ASK_ORDER_NUMBER",
+        "final_action": "CONFIRM_CANCELLATION",
+        "allowed_actions": ["ASK_ORDER_NUMBER", "CONFIRM_CANCELLATION"],
+    },
+    ...
+}
+```
+
+Policy expectations for this benchmark:
+
+- `Cancel an order`
+  Ask only for `order_number`; once present, confirm cancellation
+- `Change shipping address`
+  Ask only for `order_number`; once present, confirm the shipping address change
+- `Return a damaged item`
+  Ask only for `order_number`; once present, confirm the return and mention a return label
+- `Request refund for duplicate charge`
+  Ask only for `card_info`; once present, process the refund
+- `Check order status`
+  Ask only for `order_number`; once present, provide status wording
+- `Reset account password`
+  Ask only for `email`; once present, send the reset link
+- `Report a missing package`
+  Ask only for `order_number`; once present, open an investigation
+- `Upgrade subscription plan`
+  Ask only for `account_number`; once present, confirm the upgrade
+
+Important: for this benchmark, **do not ask unrelated follow-up questions** once the required slot is present.
+
+**4. Add an intent-specific response schema**
+
+The second call should use a dynamic schema restricted to the routed intent's allowed actions:
+
+```python
+{
+    "type": "object",
+    "properties": {
+        "action": {"type": "string", "enum": allowed_actions},
+        "utterance": {"type": "string"},
+    },
+    "required": ["action", "utterance"],
+    "additionalProperties": False,
+}
+```
+
+`detected_intent` should come from the first call, not be regenerated in the second call.
+
+**5. Replace the broad system prompt with two focused prompt builders**
+
+Add:
+
+```python
+def _create_intent_detection_prompt(slots: Dict[str, Any]) -> str
+def _create_intent_action_prompt(intent: str, slots: Dict[str, Any]) -> str
+```
+
+The second prompt should explicitly say:
+- what intent has already been chosen
+- which slot is required for this intent
+- which actions are valid for this intent
+- when to ask for the missing slot
+- when to perform the final action
+- what wording should appear in a successful final response
+
+### Response wording constraints for benchmark compatibility
+
+Because the rules judge is substring-based, the routed prompts should steer final responses toward benchmark-friendly phrases:
+
+- `CONFIRM_CANCELLATION`: include `cancelled` or `canceled`
+- `CONFIRM_ADDRESS_CHANGE`: include `shipping address` and `updated` or `changed`
+- `CONFIRM_RETURN`: include `return` and `return label`
+- `PROCESS_REFUND`: include `refund`
+- `PROVIDE_STATUS`: include `status`, `processing`, `shipped`, `delivered`, or `in transit`
+- `SEND_RESET_LINK`: include `reset link` or `check your email`
+- `OPEN_INVESTIGATION`: include `investigation`, `looking into`, or `investigate`
+- `CONFIRM_UPGRADE`: include `upgraded`, `upgrade confirmed`, `subscription has been updated`, or `new plan`
+
+### Tests
+
+**File:** `tests/test_bot_brain.py`
+
+Add tests for the new two-stage flow:
+
+- `generate_bot_response()` makes two Claude calls
+- The first call uses the 8-intent enum schema
+- The second call only allows actions valid for the detected intent
+- `Cancel an order` only allows `ASK_ORDER_NUMBER` or `CONFIRM_CANCELLATION`
+- `Request refund for duplicate charge` only allows `ASK_CARD_INFO` or `PROCESS_REFUND`
+- `Reset account password` only allows `ASK_EMAIL` or `SEND_RESET_LINK`
+- `Upgrade subscription plan` only allows `ASK_ACCOUNT_NUMBER` or `CONFIRM_UPGRADE`
+- Final return value still includes `action`, `utterance`, and `detected_intent`
+
+No `simulator.py` interface changes should be needed if the return shape stays the same.
+
+### Partial failure handling
+
+Since `generate_bot_response` makes two calls internally, handle the case where intent detection succeeds but the action call fails. If the second call raises, `generate_bot_response` should catch the exception and return a fallback response that **preserves the detected intent**:
+
+```python
+{
+    "action": "ASK_CLARIFY",
+    "utterance": "I'm sorry, I encountered an error. Could you please try again?",
+    "detected_intent": detected_intent,  # keep the successful intent
+}
+```
+
+This way `simulator.py` doesn't need changes — it still gets a valid response dict. The intent detection result is preserved even when action generation fails.
+
+Add a test for this: mock the first call to succeed, the second to raise, and assert the returned dict has the correct `detected_intent` but `action` is `"ASK_CLARIFY"`.
+
+**Checklist:**
+- [x] `bot_brain.py` split into intent-detection and intent-routed response stages
+- [x] Intent detection schema constrained to the 8 exact intent strings
+- [x] `_INTENT_POLICIES` added with required slot, ask action, final action, and allowed actions
+- [x] Second-stage response schema restricted to actions valid for the detected intent
+- [x] Intent-specific prompts added with explicit workflow rules
+- [x] Final-response wording guidance added for benchmark compatibility
+- [x] `tests/test_bot_brain.py` updated for the new two-call flow
+- [x] Partial failure test: intent detection succeeds, action call fails → returns fallback with preserved `detected_intent`
+- [x] Existing simulator/report tests still pass
+
+---
+
 ## Task 9: Update documentation
 
 ### `CLAUDE.md`
