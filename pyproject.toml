@@ -9,7 +9,7 @@ packages = [{ include = "voice_eval" }]
 [tool.poetry.dependencies]
 python = "^3.11"
 faster-whisper = "*"
-pyttsx3 = "*"
+gtts = "*"
 pyyaml = "*"
 typer = "*"
 rich = "*"

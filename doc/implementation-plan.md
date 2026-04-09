@@ -24,6 +24,8 @@ This document is the source of truth for the next round of changes. Codex should
 
 ## Task 3: Replace rule-based bot with Claude-powered bot
 
+**Status: DONE**
+
 **This is a major architecture change.** The current bot pipeline uses regex slot extraction, hardcoded if/else policy decisions, and string templates for responses. Replace the policy decision and response generation steps with Claude API calls so the bot can actually understand and respond to users intelligently.
 
 ### What changes and what stays
@@ -52,6 +54,7 @@ from anthropic import Anthropic
 
 
 def generate_bot_response(
+    client: Anthropic,
     goal: str,
     user_input: str,
     slots: Dict[str, Any],
@@ -61,8 +64,6 @@ def generate_bot_response(
     
     Returns dict with keys: "action", "utterance"
     """
-    client = Anthropic()
-
     system_prompt = f"""You are a customer service bot. Your current task is: {goal}
 
 You have access to the following extracted information from the conversation:
@@ -76,9 +77,6 @@ Rules:
 - Be concise and professional. One to two sentences max.
 - Do NOT make up order numbers, tracking info, or other specific data not in the extracted slots.
 - When confirming an action, reference the specific information the customer provided (e.g., the order number).
-
-You must respond with ONLY a JSON object (no other text):
-{{"action": "<ACTION_NAME>", "utterance": "<your response to the customer>"}}
 
 Valid actions: ASK_ORDER_NUMBER, ASK_CARD_INFO, ASK_EMAIL, ASK_ACCOUNT_NUMBER, ASK_CLARIFY,
 CONFIRM_RETURN, CONFIRM_ADDRESS_CHANGE, CONFIRM_CANCELLATION, PROCESS_REFUND,
@@ -136,6 +134,8 @@ from .bot_brain import generate_bot_response
 
 # ... in run_scenario, inside the step loop:
 
+client = Anthropic()
+
 # 1. Slot extraction (keep rule-based — fast, deterministic)
 slots_result = tool_client.call_tool("extract_slots", {
     "user_input": user_transcript,
@@ -146,6 +146,7 @@ if slots_result.success:
 
 # 2. Bot response (Claude-powered)
 bot_response = generate_bot_response(
+    client=client,
     goal=s.goal,
     user_input=user_transcript,
     slots=slots,
@@ -161,10 +162,13 @@ conversation_history.append({"user": user_transcript, "bot": bot_text})
 
 Important changes to `run_scenario`:
 - Add `conversation_history: List[Dict[str, str]] = []` alongside `slots = {}`
+- Create `client = Anthropic()` once at the top of `run_scenario`
 - Remove the `policy_decision` and `generate_response` tool calls
 - Keep the `extract_slots` tool call
 - Pass `conversation_history` to `generate_bot_response`
+- Pass the shared Claude client to `generate_bot_response`
 - After getting the response, append to `conversation_history`
+- If bot generation raises, keep the fallback utterance but mark the turn as failed and record the error on the transcript entry
 
 ### Keep `bot_tools.py` and `tool_client.py`
 
@@ -172,7 +176,7 @@ Don't delete them. `extract_slots_tool` is still used. The policy and response f
 
 ### Modify `tool_client.py`
 
-No changes needed — it still dispatches `extract_slots`.
+Only `extract_slots` should be imported and registered. Remove the registry entries for `policy_decision` and `generate_response`, but keep those functions in `bot_tools.py`.
 
 ### Add `--bot-mode` flag (optional, low priority)
 
@@ -240,11 +244,13 @@ If any existing tests mock or reference `pyttsx3`, update them to reference `gtt
 ### Run `poetry lock` and `poetry install` after changing deps.
 
 **Checklist:**
-- [ ] `pyttsx3` removed from `pyproject.toml`, `gtts` added
-- [ ] `voice_eval/audio/tts.py` rewritten to use gTTS
-- [ ] `poetry lock && poetry install` succeeds
-- [ ] `poetry run voice-eval scenarios scenarios/` produces non-empty ASR transcripts
-- [ ] All existing tests still pass
+- [x] `pyttsx3` removed from `pyproject.toml`, `gtts` added
+- [x] `voice_eval/audio/tts.py` rewritten to use gTTS
+- [x] `poetry lock && poetry install` succeeds
+- [x] `poetry run voice-eval scenarios scenarios/` produces non-empty ASR transcripts
+- [x] All existing tests still pass
+
+Verification note: `poetry run voice-eval scenarios scenarios/` completed after network access was available, and the generated report contains non-empty ASR output (for example, `out/audio/check_status_004/user_1.wav` transcribed as `"where's my order? it was supposed to be here three days ago, and i've got nothing."`). All bot turns still fell back because Anthropic credentials were not configured in this environment.
 
 ---
 
