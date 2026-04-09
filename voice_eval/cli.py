@@ -25,6 +25,10 @@ def scenarios(
         None,
         help="Directory with pre-recorded user audio files (.wav, .m4a, .mp3, .ogg, .flac)",
     ),
+    real_audio_only: bool = typer.Option(
+        False,
+        help="Only run scenarios that have recordings in --real-audio directory",
+    ),
     model: str = typer.Option("tiny", help="ASR model size"),
     judge: str = typer.Option("rules", help="Evaluation judge: rules | claude"),
 ):
@@ -38,6 +42,7 @@ def scenarios(
         model_size=model,
         judge=judge,
         real_audio_dir=real_audio,
+        real_audio_only=real_audio_only,
     )
     write_markdown_report(results, Path(report))
 

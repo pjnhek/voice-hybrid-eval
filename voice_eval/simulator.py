@@ -19,6 +19,18 @@ logger = logging.getLogger(__name__)
 _AUDIO_EXTENSIONS = (".wav", ".m4a", ".mp3", ".ogg", ".flac")
 
 
+def _scenario_has_recordings(real_audio_dir: Path, scenario_id: str) -> bool:
+    """Check if any audio files exist for a scenario."""
+    scenario_dir = real_audio_dir / scenario_id
+    if not scenario_dir.is_dir():
+        return False
+    return any(
+        f.suffix in _AUDIO_EXTENSIONS
+        for f in scenario_dir.iterdir()
+        if f.is_file()
+    )
+
+
 def _find_real_audio(real_audio_dir: Path, scenario_id: str, turn: int) -> str | None:
     """Find a pre-recorded audio file for a given scenario turn."""
     for ext in _AUDIO_EXTENSIONS:
@@ -145,9 +157,15 @@ def run_directory(
     model_size: str = "tiny",
     judge: str = "rules",
     real_audio_dir: str | Path | None = None,
+    real_audio_only: bool = False,
 ) -> List[Dict[str, Any]]:
     """Load scenarios and run all of them."""
     scenarios = load_scenarios(dir_path)
+
+    if real_audio_only and real_audio_dir is not None:
+        real_audio_root = Path(real_audio_dir)
+        scenarios = [s for s in scenarios if _scenario_has_recordings(real_audio_root, s.id)]
+
     results = []
 
     for scenario in scenarios:

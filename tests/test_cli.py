@@ -55,6 +55,7 @@ def test_scenarios_passes_real_audio_option_to_run_directory(mocker, tmp_path):
         model_size="tiny",
         judge="rules",
         real_audio_dir=str(real_audio_dir),
+        real_audio_only=False,
     )
     write_report.assert_called_once_with(
         [{"scenario_pass": True, "intent_detected": True}],

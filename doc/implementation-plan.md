@@ -625,6 +625,75 @@ Add a test for this: mock the first call to succeed, the second to raise, and as
 
 ---
 
+## Task 8.2: Add `--real-audio-only` flag
+
+**Files:** `voice_eval/cli.py`, `voice_eval/simulator.py`, `tests/test_simulator.py`
+
+When `--real-audio-only` is passed alongside `--real-audio`, only run scenarios that have at least one recording file in the real audio directory. Skip all others. This allows fast iteration on just the recorded subset instead of running all 80 scenarios.
+
+### Changes to `cli.py`
+
+Add a new option:
+
+```python
+real_audio_only: bool = typer.Option(
+    False,
+    help="Only run scenarios that have recordings in --real-audio directory",
+)
+```
+
+Pass it through to `run_directory`.
+
+### Changes to `simulator.py`
+
+**1. Add a helper to check if a scenario has recordings:**
+
+```python
+def _scenario_has_recordings(real_audio_dir: Path, scenario_id: str) -> bool:
+    """Check if any audio files exist for a scenario."""
+    scenario_dir = real_audio_dir / scenario_id
+    if not scenario_dir.is_dir():
+        return False
+    return any(
+        f.suffix in _AUDIO_EXTENSIONS
+        for f in scenario_dir.iterdir()
+        if f.is_file()
+    )
+```
+
+**2. Filter in `run_directory`:**
+
+Add `real_audio_only: bool = False` parameter. When `True` and `real_audio_dir` is set, filter scenarios before running:
+
+```python
+if real_audio_only and real_audio_dir:
+    real_audio_root = Path(real_audio_dir)
+    scenarios = [s for s in scenarios if _scenario_has_recordings(real_audio_root, s.id)]
+```
+
+### Tests
+
+Add to `tests/test_simulator.py`:
+- Test that `run_directory` with `real_audio_only=True` skips scenarios without recordings
+- Test that `run_directory` with `real_audio_only=False` runs all scenarios (existing behavior)
+
+### Usage
+
+```bash
+# Run only the 16 scenarios that have recordings, with Claude judge
+poetry run voice-eval scenarios scenarios/ --real-audio recordings/ --real-audio-only --judge claude
+```
+
+**Checklist:**
+- [x] `--real-audio-only` option added to CLI
+- [x] `_scenario_has_recordings` helper added to `simulator.py`
+- [x] `run_directory` filters scenarios when `real_audio_only=True`
+- [x] `cli.py` passes `real_audio_only` through
+- [x] Tests added for filtering behavior
+- [x] All existing tests still pass
+
+---
+
 ## Task 9: Update documentation
 
 ### `CLAUDE.md`

@@ -33,7 +33,6 @@ def check_bot_expect_claude(bot_text: str, expect: Dict[str, Any]) -> bool:
         output_config={
             "format": {
                 "type": "json_schema",
-                "name": "evaluation_result",
                 "schema": _CLAUDE_EVALUATION_SCHEMA,
             }
         },

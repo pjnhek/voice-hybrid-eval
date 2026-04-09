@@ -2,7 +2,7 @@ from pathlib import Path
 
 from voice_eval.bot_tools import ToolResult
 from voice_eval.scenario import Scenario, Step
-from voice_eval.simulator import _find_real_audio, run_directory, run_scenario
+from voice_eval.simulator import _find_real_audio, _scenario_has_recordings, run_directory, run_scenario
 
 
 def test_run_scenario_uses_extract_slots_and_tracks_conversation_history(mocker, tmp_path):
@@ -479,3 +479,61 @@ def test_run_directory_passes_real_audio_dir_through(mocker, tmp_path):
         "claude",
         real_audio_dir=real_audio_dir,
     )
+
+
+def test_run_directory_real_audio_only_skips_scenarios_without_recordings(mocker, tmp_path):
+    has_audio = Scenario(id="cancel_order_004", goal="Cancel an order", steps=[], acceptance={})
+    no_audio = Scenario(id="cancel_order_005", goal="Cancel an order", steps=[], acceptance={})
+
+    mocker.patch("voice_eval.simulator.load_scenarios", return_value=[has_audio, no_audio])
+    run_scenario_mock = mocker.patch(
+        "voice_eval.simulator.run_scenario",
+        return_value={"scenario_id": has_audio.id},
+    )
+
+    real_audio_dir = tmp_path / "recordings"
+    audio_dir = real_audio_dir / has_audio.id
+    audio_dir.mkdir(parents=True)
+    (audio_dir / "user_1.m4a").write_text("audio")
+
+    result = run_directory(
+        tmp_path / "scenarios",
+        tmp_path / "audio",
+        real_audio_dir=real_audio_dir,
+        real_audio_only=True,
+    )
+
+    assert len(result) == 1
+    run_scenario_mock.assert_called_once_with(
+        has_audio,
+        tmp_path / "audio",
+        "tiny",
+        "rules",
+        real_audio_dir=real_audio_dir,
+    )
+
+
+def test_run_directory_real_audio_only_false_runs_all_scenarios(mocker, tmp_path):
+    s1 = Scenario(id="cancel_order_004", goal="Cancel an order", steps=[], acceptance={})
+    s2 = Scenario(id="cancel_order_005", goal="Cancel an order", steps=[], acceptance={})
+
+    mocker.patch("voice_eval.simulator.load_scenarios", return_value=[s1, s2])
+    run_scenario_mock = mocker.patch(
+        "voice_eval.simulator.run_scenario",
+        side_effect=[{"scenario_id": s1.id}, {"scenario_id": s2.id}],
+    )
+
+    real_audio_dir = tmp_path / "recordings"
+    audio_dir = real_audio_dir / s1.id
+    audio_dir.mkdir(parents=True)
+    (audio_dir / "user_1.m4a").write_text("audio")
+
+    result = run_directory(
+        tmp_path / "scenarios",
+        tmp_path / "audio",
+        real_audio_dir=real_audio_dir,
+        real_audio_only=False,
+    )
+
+    assert len(result) == 2
+    assert run_scenario_mock.call_count == 2
