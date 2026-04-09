@@ -1,6 +1,6 @@
-# Voice Hybrid Eval
+# Voice Intent Eval
 
-[![CI](https://github.com/pjnhek/voice-hybrid-eval/actions/workflows/ci.yml/badge.svg)](https://github.com/pjnhek/voice-hybrid-eval/actions/workflows/ci.yml)
+[![CI](https://github.com/pjnhek/voice-intent-eval/actions/workflows/ci.yml/badge.svg)](https://github.com/pjnhek/voice-intent-eval/actions/workflows/ci.yml)
 
 An end-to-end voice pipeline that simulates customer service phone calls, transcribes speech with ASR, detects caller intent via a two-stage Claude LLM flow, and automatically evaluates bot responses against a benchmark of 80 scripted scenarios across 8 intent categories. Supports both synthetic TTS audio and real recorded human speech. The bot is never told what the customer wants — it must figure it out from the conversation alone.
 
