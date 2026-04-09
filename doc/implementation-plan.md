@@ -135,9 +135,9 @@ jobs:
 Note: Only run `pytest`, NOT the full scenario evaluation. The scenario run requires internet (gTTS, Claude API) and downloads ASR models — too slow for CI. Tests are fast, mocked, and sufficient to prove the code works.
 
 **Checklist:**
-- [ ] `.github/workflows/ci.yml` created
-- [ ] Workflow runs `poetry install` + `poetry run pytest -v`
-- [ ] Does NOT run full scenario evaluation (too slow for CI)
+- [x] `.github/workflows/ci.yml` created
+- [x] Workflow runs `poetry install` + `poetry run pytest -v`
+- [x] Does NOT run full scenario evaluation (too slow for CI)
 
 ---
 
