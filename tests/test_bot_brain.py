@@ -13,12 +13,11 @@ def _make_client(mocker, response_text):
 def test_generate_bot_response_returns_structured_dict(mocker):
     client = _make_client(
         mocker,
-        '{"action": "ASK_ORDER_NUMBER", "utterance": "Could you share your order number?"}',
+        '{"action": "ASK_ORDER_NUMBER", "utterance": "Could you share your order number?", "detected_intent": "Check order status"}',
     )
 
     result = generate_bot_response(
         client=client,
-        goal="Check order status",
         user_input="Where is my package?",
         slots={},
         conversation_history=[],
@@ -27,15 +26,19 @@ def test_generate_bot_response_returns_structured_dict(mocker):
     assert result == {
         "action": "ASK_ORDER_NUMBER",
         "utterance": "Could you share your order number?",
+        "detected_intent": "Check order status",
     }
     client.messages.create.assert_called_once()
     assert client.messages.create.call_args.kwargs["model"] == "claude-haiku-4-5"
+    schema = client.messages.create.call_args.kwargs["output_config"]["format"]["schema"]
+    assert "detected_intent" in schema["properties"]
+    assert "detected_intent" in schema["required"]
 
 
 def test_generate_bot_response_passes_conversation_history_to_api(mocker):
     client = _make_client(
         mocker,
-        '{"action": "PROVIDE_STATUS", "utterance": "Your order is on the way."}',
+        '{"action": "PROVIDE_STATUS", "utterance": "Your order is on the way.", "detected_intent": "Check order status"}',
     )
 
     history = [
@@ -45,7 +48,6 @@ def test_generate_bot_response_passes_conversation_history_to_api(mocker):
 
     generate_bot_response(
         client=client,
-        goal="Check order status",
         user_input="Any update?",
         slots={"order_number": "12345"},
         conversation_history=history,
@@ -63,31 +65,30 @@ def test_generate_bot_response_passes_conversation_history_to_api(mocker):
 def test_generate_bot_response_includes_empty_slots_in_system_prompt(mocker):
     client = _make_client(
         mocker,
-        '{"action": "ASK_EMAIL", "utterance": "What email is on the account?"}',
+        '{"action": "ASK_EMAIL", "utterance": "What email is on the account?", "detected_intent": "Reset account password"}',
     )
 
     generate_bot_response(
         client=client,
-        goal="Reset account password",
         user_input="I forgot my password.",
         slots={},
         conversation_history=[],
     )
 
     system_prompt = client.messages.create.call_args.kwargs["system"]
-    assert "Reset account password" in system_prompt
     assert "No information extracted yet." in system_prompt
+    assert "Your current task is:" not in system_prompt
+    assert "must figure out what they need" in system_prompt
 
 
 def test_generate_bot_response_includes_populated_slots_in_system_prompt(mocker):
     client = _make_client(
         mocker,
-        '{"action": "CONFIRM_CANCELLATION", "utterance": "Order 12345 has been cancelled."}',
+        '{"action": "CONFIRM_CANCELLATION", "utterance": "Order 12345 has been cancelled.", "detected_intent": "Cancel an order"}',
     )
 
     generate_bot_response(
         client=client,
-        goal="Cancel an order",
         user_input="Please cancel order 12345.",
         slots={"order_number": "12345"},
         conversation_history=[],
@@ -95,18 +96,43 @@ def test_generate_bot_response_includes_populated_slots_in_system_prompt(mocker)
 
     system_prompt = client.messages.create.call_args.kwargs["system"]
     assert '"order_number": "12345"' in system_prompt
-    assert "Cancel an order" in system_prompt
+
+
+def test_generate_bot_response_system_prompt_lists_all_valid_intents(mocker):
+    client = _make_client(
+        mocker,
+        '{"action": "ASK_CLARIFY", "utterance": "Could you tell me more?", "detected_intent": "Report a missing package"}',
+    )
+
+    generate_bot_response(
+        client=client,
+        user_input="My delivery never showed up.",
+        slots={},
+        conversation_history=[],
+    )
+
+    system_prompt = client.messages.create.call_args.kwargs["system"]
+    for intent in [
+        "Return a damaged item",
+        "Request refund for duplicate charge",
+        "Change shipping address",
+        "Cancel an order",
+        "Check order status",
+        "Reset account password",
+        "Report a missing package",
+        "Upgrade subscription plan",
+    ]:
+        assert f'"{intent}"' in system_prompt
 
 
 def test_generate_bot_response_skips_missing_bot_history_entries(mocker):
     client = _make_client(
         mocker,
-        '{"action": "ASK_CLARIFY", "utterance": "Can you tell me more?"}',
+        '{"action": "ASK_CLARIFY", "utterance": "Can you tell me more?", "detected_intent": "Check order status"}',
     )
 
     generate_bot_response(
         client=client,
-        goal="General support",
         user_input="Can you help?",
         slots={},
         conversation_history=[{"user": "hello"}],

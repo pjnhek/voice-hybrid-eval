@@ -361,22 +361,22 @@ Update existing tests — mock `generate_bot_response` returns now include `dete
 - Test that per-turn output shows detected intent with ✅/❌
 
 **Checklist:**
-- [ ] `bot_brain.py`: `goal` removed from function signature
-- [ ] `bot_brain.py`: system prompt rewritten — no goal, bot must infer intent
-- [ ] `bot_brain.py`: `detected_intent` added to structured output schema
-- [ ] `bot_brain.py`: `_create_system_prompt` no longer takes `goal`
-- [ ] `simulator.py`: `generate_bot_response` called without `goal`
-- [ ] `simulator.py`: `detected_intent` extracted from response and compared to `s.goal`
-- [ ] `simulator.py`: transcript entries include `detected_intent`, `expected_intent`, `intent_correct`
-- [ ] `simulator.py`: scenario result includes `intent_detected` and `first_correct_turn`
-- [ ] `reporters/markdown.py`: summary table shows intent column
-- [ ] `reporters/markdown.py`: overall intent accuracy percentage at top
-- [ ] `reporters/markdown.py`: per-turn detected intent with ✅/❌
-- [ ] `cli.py`: print includes intent accuracy
-- [ ] Tests updated in `test_bot_brain.py` (no goal, detected_intent in response)
-- [ ] Tests updated in `test_simulator.py` (intent tracking fields)
-- [ ] Tests added in `test_markdown_report.py` (intent in report)
-- [ ] All existing tests still pass
+- [x] `bot_brain.py`: `goal` removed from function signature
+- [x] `bot_brain.py`: system prompt rewritten — no goal, bot must infer intent
+- [x] `bot_brain.py`: `detected_intent` added to structured output schema
+- [x] `bot_brain.py`: `_create_system_prompt` no longer takes `goal`
+- [x] `simulator.py`: `generate_bot_response` called without `goal`
+- [x] `simulator.py`: `detected_intent` extracted from response and compared to `s.goal`
+- [x] `simulator.py`: transcript entries include `detected_intent`, `expected_intent`, `intent_correct`
+- [x] `simulator.py`: scenario result includes `intent_detected` and `first_correct_turn`
+- [x] `reporters/markdown.py`: summary table shows intent column
+- [x] `reporters/markdown.py`: overall intent accuracy percentage at top
+- [x] `reporters/markdown.py`: per-turn detected intent with ✅/❌
+- [x] `cli.py`: print includes intent accuracy
+- [x] Tests updated in `test_bot_brain.py` (no goal, detected_intent in response)
+- [x] Tests updated in `test_simulator.py` (intent tracking fields)
+- [x] Tests added in `test_markdown_report.py` (intent in report)
+- [x] All existing tests still pass
 
 ---
 

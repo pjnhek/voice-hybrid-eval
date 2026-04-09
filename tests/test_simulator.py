@@ -34,18 +34,20 @@ def test_run_scenario_uses_extract_slots_and_tracks_conversation_history(mocker,
     captured_histories = []
     captured_clients = []
 
-    def fake_generate_bot_response(client, goal, user_input, slots, conversation_history):
+    def fake_generate_bot_response(client, user_input, slots, conversation_history):
         captured_clients.append(client)
         captured_histories.append([dict(entry) for entry in conversation_history])
         if not conversation_history:
             return {
                 "action": "ASK_ORDER_NUMBER",
                 "utterance": "Could you please share your order number?",
+                "detected_intent": "Check order status",
             }
 
         return {
             "action": "PROVIDE_STATUS",
             "utterance": "Order 12345 is on the way.",
+            "detected_intent": "Check order status",
         }
 
     mocker.patch(
@@ -74,6 +76,11 @@ def test_run_scenario_uses_extract_slots_and_tracks_conversation_history(mocker,
     assert result["transcript"][0]["action"] == "ASK_ORDER_NUMBER"
     assert result["transcript"][1]["action"] == "PROVIDE_STATUS"
     assert result["transcript"][1]["slots"] == {"order_number": "12345"}
+    assert result["transcript"][0]["detected_intent"] == "Check order status"
+    assert result["transcript"][0]["expected_intent"] == "Check order status"
+    assert result["transcript"][0]["intent_correct"] is True
+    assert result["intent_detected"] is True
+    assert result["first_correct_turn"] == 1
 
 
 def test_run_scenario_marks_turn_failed_when_generate_bot_response_raises(mocker, tmp_path):
@@ -105,6 +112,10 @@ def test_run_scenario_marks_turn_failed_when_generate_bot_response_raises(mocker
 
     assert result["transcript"][0]["pass"] is False
     assert "claude unavailable" in result["transcript"][0]["error"]
+    assert result["transcript"][0]["detected_intent"] == ""
+    assert result["transcript"][0]["intent_correct"] is False
+    assert result["intent_detected"] is False
+    assert result["first_correct_turn"] is None
     evaluator.assert_not_called()
 
 
@@ -142,9 +153,21 @@ def test_run_scenario_preserves_slots_after_extraction_failure_on_next_turn(mock
     mocker.patch(
         "voice_eval.simulator.generate_bot_response",
         side_effect=[
-            {"action": "PROVIDE_STATUS", "utterance": "I found order 12345."},
-            {"action": "PROVIDE_STATUS", "utterance": "I still have order 12345."},
-            {"action": "PROVIDE_STATUS", "utterance": "Order 12345 is still processing."},
+            {
+                "action": "PROVIDE_STATUS",
+                "utterance": "I found order 12345.",
+                "detected_intent": "Check order status",
+            },
+            {
+                "action": "PROVIDE_STATUS",
+                "utterance": "I still have order 12345.",
+                "detected_intent": "Check order status",
+            },
+            {
+                "action": "PROVIDE_STATUS",
+                "utterance": "Order 12345 is still processing.",
+                "detected_intent": "Check order status",
+            },
         ],
     )
     mocker.patch("voice_eval.simulator.check_bot_expect_enhanced", return_value=True)
@@ -181,7 +204,11 @@ def test_run_scenario_uses_claude_judge_when_requested(mocker, tmp_path):
 
     mocker.patch(
         "voice_eval.simulator.generate_bot_response",
-        return_value={"action": "PROVIDE_STATUS", "utterance": "Your order status is pending."},
+        return_value={
+            "action": "PROVIDE_STATUS",
+            "utterance": "Your order status is pending.",
+            "detected_intent": "Check order status",
+        },
     )
     claude_evaluator = mocker.patch(
         "voice_eval.simulator.check_bot_expect_claude",
@@ -229,8 +256,16 @@ def test_run_scenario_counts_only_steps_with_expectations(mocker, tmp_path):
     mocker.patch(
         "voice_eval.simulator.generate_bot_response",
         side_effect=[
-            {"action": "ASK_CLARIFY", "utterance": "How can I help?"},
-            {"action": "ASK_ORDER_NUMBER", "utterance": "Please share your order number."},
+            {
+                "action": "ASK_CLARIFY",
+                "utterance": "How can I help?",
+                "detected_intent": "Check order status",
+            },
+            {
+                "action": "ASK_ORDER_NUMBER",
+                "utterance": "Please share your order number.",
+                "detected_intent": "Check order status",
+            },
         ],
     )
     mocker.patch("voice_eval.simulator.check_bot_expect_enhanced", return_value=True)
@@ -240,6 +275,65 @@ def test_run_scenario_counts_only_steps_with_expectations(mocker, tmp_path):
     assert result["steps_expected"] == 1
     assert result["steps_passed"] == 1
     assert result["scenario_pass"] is True
+
+
+def test_run_scenario_uses_last_turn_for_intent_detected_and_tracks_first_correct_turn(mocker, tmp_path):
+    scenario = Scenario(
+        id="intent_tracking_001",
+        goal="Check order status",
+        steps=[
+            Step(user="I need help.", bot_expect=None),
+            Step(user="It's about order 12345.", bot_expect=None),
+            Step(user="Actually, where is it now?", bot_expect={"contains": "pending"}),
+        ],
+        acceptance={},
+    )
+
+    mocker.patch("voice_eval.simulator.Anthropic", return_value=mocker.sentinel.client)
+    mocker.patch("voice_eval.simulator.synthesize")
+    mocker.patch(
+        "voice_eval.simulator.transcribe",
+        side_effect=[
+            "I need help.",
+            "It's about order 12345.",
+            "Actually, where is it now?",
+        ],
+    )
+
+    tool_client = mocker.Mock()
+    tool_client.call_tool.side_effect = [
+        ToolResult(success=True, data={}),
+        ToolResult(success=True, data={"order_number": "12345"}),
+        ToolResult(success=True, data={"order_number": "12345"}),
+    ]
+    mocker.patch("voice_eval.simulator.ToolClient", return_value=tool_client)
+    mocker.patch(
+        "voice_eval.simulator.generate_bot_response",
+        side_effect=[
+            {
+                "action": "ASK_CLARIFY",
+                "utterance": "Can you tell me more?",
+                "detected_intent": "Cancel an order",
+            },
+            {
+                "action": "ASK_ORDER_NUMBER",
+                "utterance": "Thanks, I can check that order.",
+                "detected_intent": "Check order status",
+            },
+            {
+                "action": "PROVIDE_STATUS",
+                "utterance": "Your order is pending.",
+                "detected_intent": "Cancel an order",
+            },
+        ],
+    )
+    mocker.patch("voice_eval.simulator.check_bot_expect_enhanced", return_value=True)
+
+    result = run_scenario(scenario, Path(tmp_path), model_size="tiny", judge="rules")
+
+    assert [entry["intent_correct"] for entry in result["transcript"]] == [False, True, False]
+    assert result["intent_detected"] is False
+    assert result["first_correct_turn"] == 2
 
 
 def test_find_real_audio_prefers_higher_priority_extension(tmp_path):
@@ -279,7 +373,11 @@ def test_run_scenario_uses_real_audio_without_synthesizing_user_turn(mocker, tmp
     mocker.patch("voice_eval.simulator.ToolClient", return_value=tool_client)
     mocker.patch(
         "voice_eval.simulator.generate_bot_response",
-        return_value={"action": "PROVIDE_STATUS", "utterance": "Your order is pending."},
+        return_value={
+            "action": "PROVIDE_STATUS",
+            "utterance": "Your order is pending.",
+            "detected_intent": "Check order status",
+        },
     )
     mocker.patch("voice_eval.simulator.check_bot_expect_enhanced", return_value=True)
 
@@ -320,7 +418,11 @@ def test_run_scenario_falls_back_to_tts_when_real_audio_is_missing(mocker, tmp_p
     mocker.patch("voice_eval.simulator.ToolClient", return_value=tool_client)
     mocker.patch(
         "voice_eval.simulator.generate_bot_response",
-        return_value={"action": "PROVIDE_STATUS", "utterance": "Your order is pending."},
+        return_value={
+            "action": "PROVIDE_STATUS",
+            "utterance": "Your order is pending.",
+            "detected_intent": "Check order status",
+        },
     )
     mocker.patch("voice_eval.simulator.check_bot_expect_enhanced", return_value=True)
 

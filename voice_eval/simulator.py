@@ -70,7 +70,6 @@ def run_scenario(
         try:
             bot_response = generate_bot_response(
                 client=client,
-                goal=s.goal,
                 user_input=user_transcript,
                 slots=slots,
                 conversation_history=conversation_history,
@@ -81,10 +80,13 @@ def run_scenario(
             bot_response = {
                 "action": "ASK_CLARIFY",
                 "utterance": "I'm sorry, I encountered an error. Could you please try again?",
+                "detected_intent": "",
             }
 
         bot_text = bot_response["utterance"]
         action = bot_response["action"]
+        detected_intent = bot_response.get("detected_intent", "")
+        intent_correct = detected_intent == s.goal
         conversation_history.append({"user": user_transcript, "bot": bot_text})
 
         bot_wav = f"{audio_dir}/{s.id}/bot_{i}.wav"
@@ -104,6 +106,9 @@ def run_scenario(
             "bot_text": bot_text,
             "action": action,
             "slots": dict(slots),
+            "detected_intent": detected_intent,
+            "expected_intent": s.goal,
+            "intent_correct": intent_correct,
             "pass": ok,
             "error": error,
             "expectation": step.bot_expect or {},
@@ -114,11 +119,20 @@ def run_scenario(
     steps_expected = sum(1 for step in s.steps if step.bot_expect)
     steps_passed = sum(1 for entry in transcript if entry["pass"] and entry["expectation"])
     scenario_pass = (steps_passed == steps_expected)
+    intent_results = [entry["intent_correct"] for entry in transcript]
+    intent_detected = intent_results[-1] if intent_results else False
+    first_correct_turn = None
+    for entry in transcript:
+        if entry["intent_correct"]:
+            first_correct_turn = entry["turn"]
+            break
 
     return {
         "scenario_id": s.id,
         "goal": s.goal,
         "scenario_pass": scenario_pass,
+        "intent_detected": intent_detected,
+        "first_correct_turn": first_correct_turn,
         "steps_expected": steps_expected,
         "steps_passed": steps_passed,
         "transcript": transcript,

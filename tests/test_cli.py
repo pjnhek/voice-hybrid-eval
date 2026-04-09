@@ -21,7 +21,15 @@ def test_scenarios_passes_real_audio_option_to_run_directory(mocker, tmp_path):
     audio_dir = tmp_path / "audio"
     real_audio_dir = tmp_path / "real-audio"
 
-    run_directory = mocker.patch("voice_eval.cli.run_directory", return_value=[])
+    run_directory = mocker.patch(
+        "voice_eval.cli.run_directory",
+        return_value=[
+            {
+                "scenario_pass": True,
+                "intent_detected": True,
+            }
+        ],
+    )
     write_report = mocker.patch("voice_eval.cli.write_markdown_report")
 
     result = runner.invoke(
@@ -39,6 +47,8 @@ def test_scenarios_passes_real_audio_option_to_run_directory(mocker, tmp_path):
     )
 
     assert result.exit_code == 0
+    assert "1/1 scenarios passed" in result.stdout
+    assert "Intent detection: 1/1 correct" in result.stdout
     run_directory.assert_called_once_with(
         Path(scenarios_dir),
         Path(audio_dir),
@@ -46,4 +56,7 @@ def test_scenarios_passes_real_audio_option_to_run_directory(mocker, tmp_path):
         judge="rules",
         real_audio_dir=str(real_audio_dir),
     )
-    write_report.assert_called_once_with([], Path(report_path))
+    write_report.assert_called_once_with(
+        [{"scenario_pass": True, "intent_detected": True}],
+        Path(report_path),
+    )

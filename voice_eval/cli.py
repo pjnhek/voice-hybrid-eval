@@ -43,8 +43,10 @@ def scenarios(
 
     total_scenarios = len(results)
     passed_scenarios = sum(1 for r in results if r["scenario_pass"])
+    intent_correct = sum(1 for r in results if r["intent_detected"])
 
     print(f"{passed_scenarios}/{total_scenarios} scenarios passed")
+    print(f"Intent detection: {intent_correct}/{total_scenarios} correct")
     print(f"Report written to: {report}")
 
 
