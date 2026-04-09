@@ -722,10 +722,10 @@ poetry run voice-eval scenarios scenarios/ --real-audio recordings/ --real-audio
 - Add a Sample Output section linking to `out/report.md`
 
 **Checklist:**
-- [ ] CLAUDE.md updated with intent detection architecture
-- [ ] README.md updated with intent detection focus
-- [ ] `--real-audio` documented in both
-- [ ] Intent detection evaluation explained in README
+- [x] CLAUDE.md updated with intent detection architecture
+- [x] README.md updated with intent detection focus
+- [x] `--real-audio` documented in both
+- [x] Intent detection evaluation explained in README
 
 ---
 
